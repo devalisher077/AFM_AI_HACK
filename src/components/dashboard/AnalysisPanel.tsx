@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { ArrowRight, Send } from "lucide-react";
 import radar from "@/assets/ai-radar.jpg";
 
@@ -37,10 +38,13 @@ export function AnalysisPanel() {
         </p>
 
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button className="glow-cyan inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan to-glow-green px-3 py-2 text-[12px] font-semibold text-cyan-foreground transition-opacity hover:opacity-90">
+          <Link
+            to="/ai-analysis"
+            className="glow-cyan inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan to-glow-green px-3 py-2 text-[12px] font-semibold text-cyan-foreground transition-opacity hover:opacity-90"
+          >
             <ArrowRight className="h-3.5 w-3.5" />
             Подробнее
-          </button>
+          </Link>
           <button className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-cyan/40 bg-cyan/5 px-3 py-2 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/10">
             <Send className="h-3.5 w-3.5" />
             Аналитику

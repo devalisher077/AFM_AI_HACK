@@ -19,16 +19,16 @@ function riskClass(risk: RiskLevel) {
   }
 }
 
-function statusBadge(status: StatusLevel) {
+function statusClass(status: StatusLevel) {
   switch (status) {
     case "New Alert":
-      return "bg-pink/15 text-pink ring-pink/30";
+      return "text-cyan";
     case "Reviewing":
-      return "bg-orange/15 text-orange ring-orange/30";
+      return "text-muted-foreground";
     case "Detected":
-      return "bg-cyan/15 text-cyan ring-cyan/30";
+      return "text-glow-green";
     case "Escalated":
-      return "bg-purple/15 text-purple ring-purple/30";
+      return "text-purple";
   }
 }
 
@@ -36,7 +36,9 @@ export function ScannedPostsTable() {
   return (
     <div className="glass flex flex-1 flex-col rounded-2xl p-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-foreground">Недавние просканированные посты</h2>
+        <h2 className="text-lg font-bold text-foreground">
+          Недавние просканированные посты
+        </h2>
         <button className="rounded-lg px-3 py-1.5 text-[12px] text-cyan transition-colors hover:bg-cyan/10">
           Все ›
         </button>
@@ -74,17 +76,19 @@ export function ScannedPostsTable() {
             className="grid grid-cols-[1fr_1.4fr_1.4fr_0.9fr_1fr] items-center gap-2 border-t border-border/40 px-2 py-3.5 text-[13px] transition-colors hover:bg-muted/20"
           >
             <span className="text-muted-foreground">{post.date}</span>
-            <span className="truncate font-medium text-foreground">{post.source}</span>
+            <span className="truncate font-medium text-foreground">
+              {post.source}
+            </span>
             <span className="truncate text-foreground/90">{post.threat}</span>
-            <span className={`font-semibold ${riskClass(post.risk)}`}>{riskLabels[post.risk]}</span>
-            <span>
-              <span
-                className={`inline-block rounded-md px-2 py-1 text-[11px] font-medium ring-1 ${statusBadge(
-                  post.status,
-                )}`}
-              >
-                {statusLabels[post.status]}
-              </span>
+            <span className={`font-semibold ${riskClass(post.risk)}`}>
+              {riskLabels[post.risk]}
+            </span>
+            <span
+              className={`truncate text-[12px] font-medium ${statusClass(
+                post.status,
+              )}`}
+            >
+              {statusLabels[post.status]}
             </span>
           </div>
         ))}

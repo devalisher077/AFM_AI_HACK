@@ -3,18 +3,14 @@ import { MiniChart } from "./MiniChart";
 import type { ThreatCardData } from "@/lib/dashboard-data";
 
 export function ThreatCard({ data }: { data: ThreatCardData }) {
-  const isCyan = data.accent === "cyan";
+  const isEscalating = data.accent === "red";
+
   return (
-    <div className="glass group relative flex flex-col overflow-hidden rounded-2xl p-4 transition-shadow hover:shadow-[0_0_28px_-8px_oklch(0.82_0.15_185_/_40%)]">
+    <div className="glass group relative flex flex-col overflow-hidden rounded-2xl p-4 transition-colors hover:border-cyan/45">
       {/* top row */}
       <div className="flex items-start justify-between">
-        <span
-          className={
-            isCyan
-              ? "rounded-md bg-cyan/15 px-2 py-1 text-[10px] font-medium text-cyan ring-1 ring-cyan/30"
-              : "rounded-md bg-pink/15 px-2 py-1 text-[10px] font-medium text-pink ring-1 ring-pink/30"
-          }
-        >
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase text-glow-green">
+          <span className="h-1.5 w-1.5 rounded-full bg-glow-green" />
           {data.label}
         </span>
         <button className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-cyan">
@@ -22,8 +18,12 @@ export function ThreatCard({ data }: { data: ThreatCardData }) {
         </button>
       </div>
 
-      <h3 className="mt-3 text-[15px] font-semibold text-foreground">{data.title}</h3>
-      <span className="mt-1 text-[11px] text-muted-foreground">{data.metricLabel}</span>
+      <h3 className="mt-3 text-[15px] font-semibold text-foreground">
+        {data.title}
+      </h3>
+      <span className="mt-1 text-[11px] text-muted-foreground">
+        {data.metricLabel}
+      </span>
 
       <div className="mt-1 flex items-center gap-2">
         <span className="text-[28px] font-bold leading-none tracking-tight text-foreground">
@@ -36,9 +36,9 @@ export function ThreatCard({ data }: { data: ThreatCardData }) {
 
       <span
         className={
-          isCyan
-            ? "mt-2 inline-flex w-fit items-center gap-1 text-[11px] font-medium text-glow-green"
-            : "mt-2 inline-flex w-fit items-center gap-1 text-[11px] font-medium text-pink"
+          isEscalating
+            ? "mt-2 inline-flex w-fit items-center gap-1 text-[11px] font-medium text-pink"
+            : "mt-2 inline-flex w-fit items-center gap-1 text-[11px] font-medium text-glow-green"
         }
       >
         <TrendingUp className="h-3 w-3" />

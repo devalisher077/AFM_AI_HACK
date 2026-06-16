@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronDown } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { ThreatCard } from "@/components/dashboard/ThreatCard";
 import { ScannedPostsTable } from "@/components/dashboard/ScannedPostsTable";
-import { AnalysisPanel } from "@/components/dashboard/AnalysisPanel";
+import { ConnectorStatus } from "@/components/dashboard/ConnectorStatus";
 import { MonitoringOverview } from "@/components/dashboard/MonitoringOverview";
 import { SourceDistribution } from "@/components/dashboard/SourceDistribution";
 import { threatCards } from "@/lib/dashboard-data";
@@ -18,7 +17,10 @@ export const Route = createFileRoute("/")({
         content:
           "AI-платформа мониторинга и раннего предупреждения, сканирующая открытые источники для выявления новых финансовых и цифровых угроз.",
       },
-      { property: "og:title", content: "AI Media Watch — Платформа аналитики угроз" },
+      {
+        property: "og:title",
+        content: "AI Media Watch — Платформа аналитики угроз",
+      },
       {
         property: "og:description",
         content:
@@ -28,8 +30,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Dashboard,
 });
-
-const filterPills = ["24Ч", "Уровень риска", "Убыв."];
 
 function Dashboard() {
   return (
@@ -47,25 +47,11 @@ function Dashboard() {
                 <div className="mb-3 flex items-end justify-between gap-3">
                   <div>
                     <div className="mb-1 flex items-center gap-2 text-[12px] text-muted-foreground">
-                      Рекомендовано за последние 24 часа
-                      <span className="rounded-md bg-cyan/15 px-2 py-0.5 text-[10px] font-medium text-cyan ring-1 ring-cyan/30">
-                        5 оповещений
-                      </span>
+                      Данные обновлены 5 минут назад
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
                       Топ новых угроз
                     </h1>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {filterPills.map((pill) => (
-                      <button
-                        key={pill}
-                        className="glass inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <ChevronDown className="h-3 w-3" />
-                        {pill}
-                      </button>
-                    ))}
                   </div>
                 </div>
 
@@ -81,8 +67,8 @@ function Dashboard() {
 
             {/* Right column */}
             <aside className="flex w-[340px] shrink-0 flex-col gap-4">
-              <AnalysisPanel />
               <MonitoringOverview />
+              <ConnectorStatus />
               <SourceDistribution />
             </aside>
           </div>

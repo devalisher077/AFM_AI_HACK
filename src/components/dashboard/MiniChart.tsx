@@ -1,14 +1,14 @@
 interface MiniChartProps {
-  accent: "cyan" | "pink";
+  accent: "green" | "red";
   className?: string;
 }
 
-const CYAN_POINTS = [22, 18, 20, 14, 16, 11, 13, 8, 12, 6, 9, 4];
-const PINK_POINTS = [16, 19, 14, 17, 12, 15, 10, 13, 9, 12, 7, 10];
+const GREEN_POINTS = [18, 17, 18, 16, 17, 15, 16, 14, 15, 14, 13, 13];
+const RED_POINTS = [5, 7, 6, 10, 12, 15, 14, 19, 21, 25, 28, 32];
 
 export function MiniChart({ accent, className }: MiniChartProps) {
-  const points = accent === "cyan" ? CYAN_POINTS : PINK_POINTS;
-  const stroke = accent === "cyan" ? "var(--cyan)" : "var(--pink)";
+  const points = accent === "green" ? GREEN_POINTS : RED_POINTS;
+  const stroke = accent === "green" ? "var(--glow-green)" : "var(--pink)";
   const id = `mini-${accent}`;
   const w = 240;
   const h = 48;
@@ -34,7 +34,7 @@ export function MiniChart({ accent, className }: MiniChartProps) {
     >
       <defs>
         <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.28" />
+          <stop offset="0%" stopColor={stroke} stopOpacity="0.16" />
           <stop offset="100%" stopColor={stroke} stopOpacity="0" />
         </linearGradient>
       </defs>
@@ -46,7 +46,6 @@ export function MiniChart({ accent, className }: MiniChartProps) {
         strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
-        style={{ filter: `drop-shadow(0 0 5px ${stroke})` }}
       />
     </svg>
   );
