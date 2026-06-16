@@ -50,7 +50,7 @@ function Dashboard() {
                       Данные обновлены 5 минут назад
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      Топ новых угроз
+                      Статистика угроз
                     </h1>
                   </div>
                 </div>

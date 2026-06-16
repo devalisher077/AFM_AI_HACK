@@ -12,12 +12,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const profile = {
-  username: "@damir_sa",
-  name: "Дамир Сарсенов",
-  role: "AI-аналитик угроз",
-};
-
 export const navItems = [
   { label: "Дашборд", icon: LayoutDashboard, href: "/" },
   { label: "AI-анализ", icon: Brain, href: "/ai-analysis" },
