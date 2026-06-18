@@ -1,6 +1,7 @@
 import { CheckCircle2, Clock3, PlugZap, ShieldAlert } from "lucide-react";
 import {
   connectorHealth,
+  type ConnectorHealth,
   type ConnectorStatus as ConnectorStatusType,
 } from "@/lib/dashboard-data";
 
@@ -33,6 +34,14 @@ function StatusIcon({ status }: { status: ConnectorStatusType }) {
 }
 
 export function ConnectorStatus() {
+  return <ConnectorStatusView connectors={connectorHealth} />;
+}
+
+export function ConnectorStatusView({
+  connectors,
+}: {
+  connectors: ConnectorHealth[];
+}) {
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between gap-3">
@@ -44,7 +53,7 @@ export function ConnectorStatus() {
       </div>
 
       <div className="mt-3 space-y-2">
-        {connectorHealth.map((connector) => (
+        {connectors.map((connector) => (
           <div
             key={connector.name}
             className="rounded-lg border border-border/40 bg-muted/10 px-3 py-2.5"

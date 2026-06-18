@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 export const navItems = [
-  { label: "Дашборд", icon: LayoutDashboard, href: "/" },
+  { label: "Dashboard", icon: LayoutDashboard, href: "/" },
   { label: "AI-анализ", icon: Brain, href: "/ai-analysis" },
   { label: "Источники", icon: Radar, href: "/sources" },
   { label: "Отчёты", icon: FileText, href: "/reports" },
@@ -29,6 +29,7 @@ export interface ThreatCardData {
   growth: string;
   posts: string;
   accent: Accent;
+  href?: string;
 }
 
 export const threatCards: ThreatCardData[] = [
@@ -261,6 +262,7 @@ export interface FoundSourcePost {
   platform: SourcePlatform;
   icon: LucideIcon;
   account: string;
+  sourceHref: string | null;
   sourceUrl: string;
   city: string;
   foundAt: string;

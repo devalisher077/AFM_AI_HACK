@@ -202,3 +202,42 @@
 @utility text-glow {
   text-shadow: 0 0 16px oklch(0.82 0.15 185 / 55%);
 }
+
+.dashboard-threat-scroll {
+  cursor: grab;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  touch-action: pan-x;
+  user-select: none;
+}
+
+.dashboard-threat-scroll:active {
+  cursor: grabbing;
+}
+
+.dashboard-threat-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dashboard-post-scroll {
+  cursor: grab;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.dashboard-post-scroll:active {
+  cursor: grabbing;
+}
+
+.dashboard-post-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-threat-marquee {
+    animation: none;
+    transform: translateX(0);
+  }
+}

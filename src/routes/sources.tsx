@@ -1,6 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
   ExternalLink,
   Filter,
   MapPin,
@@ -10,12 +14,14 @@ import {
 } from "lucide-react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import {
-  foundSourcePosts,
-  kazakhstanCitySignals,
   riskLabels,
   type KazakhstanCitySignal,
   type RiskLevel,
 } from "@/lib/dashboard-data";
+import {
+  emptySourcesData,
+  fetchSourcesLiveData,
+} from "@/lib/supabase-sources";
 
 export const Route = createFileRoute("/sources")({
   head: () => ({
@@ -45,8 +51,31 @@ const riskClass: Record<RiskLevel, string> = {
 };
 
 function SourcesPage() {
-  const totalPosts = kazakhstanCitySignals.reduce((sum, city) => sum + city.posts, 0);
-  const criticalPosts = foundSourcePosts.filter((post) => post.risk === "Critical").length;
+  const pageSize = 10;
+  const [page, setPage] = useState(0);
+  const { data, isLoading, isFetching } = useQuery({
+    queryKey: ["sources-live-data"],
+    queryFn: fetchSourcesLiveData,
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
+  const sourceData = data ?? emptySourcesData;
+  const totalPages = Math.max(1, Math.ceil(sourceData.posts.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
+  const pagedPosts = useMemo(
+    () =>
+      sourceData.posts.slice(
+        currentPage * pageSize,
+        currentPage * pageSize + pageSize,
+      ),
+    [currentPage, pageSize, sourceData.posts],
+  );
+
+  useEffect(() => {
+    if (page !== currentPage) {
+      setPage(currentPage);
+    }
+  }, [currentPage, page]);
 
   return (
     <div className="min-h-screen p-4 lg:p-5">
@@ -81,9 +110,9 @@ function SourcesPage() {
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
-                  <Metric label="городов" value={String(kazakhstanCitySignals.length)} />
-                  <Metric label="постов" value={String(totalPosts)} />
-                  <Metric label="критич." value={String(criticalPosts)} />
+                  <Metric label="городов" value="0" />
+                  <Metric label="постов" value={String(sourceData.totalPosts)} />
+                  <Metric label="критич." value={String(sourceData.criticalPosts)} />
                 </div>
               </div>
             </div>
@@ -102,9 +131,7 @@ function SourcesPage() {
               </div>
 
               <div className="space-y-2">
-                {kazakhstanCitySignals.map((city) => (
-                  <CityRow key={city.city} city={city} />
-                ))}
+                <EmptyPanel text="В текущей схеме Supabase нет отдельного поля city, поэтому география не строится из реальных данных." />
               </div>
             </div>
           </section>
@@ -114,84 +141,149 @@ function SourcesPage() {
               <div>
                 <h2 className="text-[17px] font-bold text-foreground">Найденные публикации</h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Аккаунт, путь нахождения и доказательные признаки по каждому сигналу.
+                  {isLoading
+                    ? "Загрузка публикаций из Supabase..."
+                    : "Аккаунт, путь нахождения и доказательные признаки по каждому сигналу."}
+                  {isFetching && !isLoading ? " Обновляется..." : ""}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-[11px] font-medium text-muted-foreground">
+                  {sourceData.posts.length === 0
+                    ? "0 записей"
+                    : `${currentPage * pageSize + 1}-${Math.min(
+                        (currentPage + 1) * pageSize,
+                        sourceData.posts.length,
+                      )} из ${sourceData.posts.length}`}
+                </div>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/60 bg-muted/10 px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted/25 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setPage((value) => Math.max(0, value - 1))}
+                  disabled={currentPage === 0 || sourceData.posts.length === 0}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Назад
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan/35 bg-cyan/10 px-3 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/15 disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={() => setPage((value) => Math.min(totalPages - 1, value + 1))}
+                  disabled={currentPage >= totalPages - 1 || sourceData.posts.length === 0}
+                >
+                  Дальше
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
                 <button className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border/60 bg-muted/10 px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted/25 hover:text-foreground">
                   <Search className="h-3.5 w-3.5" />
                   Поиск
                 </button>
                 <button className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-cyan/35 bg-cyan/10 px-3 text-[12px] font-medium text-cyan transition-colors hover:bg-cyan/15">
-                  <Filter className="h-3.5 w-3.5" />
                   Фильтр
                 </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-              {foundSourcePosts.map((post) => {
-                const Icon = post.icon;
+            {sourceData.errorMessage ? (
+              <EmptyPanel text={sourceData.errorMessage} />
+            ) : null}
 
-                return (
-                  <article
-                    key={post.id}
-                    className="rounded-xl border border-border/45 bg-muted/10 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 gap-3">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan/10 ring-1 ring-cyan/30">
-                          <Icon className="h-5 w-5 text-cyan" strokeWidth={1.8} />
-                        </div>
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="truncate text-[14px] font-bold text-foreground">
-                              {post.account}
-                            </h3>
-                            <span
-                              className={`rounded-md px-2 py-0.5 text-[10px] font-medium ring-1 ${riskClass[post.risk]}`}
-                            >
-                              {riskLabels[post.risk]}
-                            </span>
+            {isLoading ? (
+              <LoadingGrid />
+            ) : pagedPosts.length > 0 ? (
+              <div className="space-y-3">
+                {pagedPosts.map((post, index) => {
+                  const Icon = post.icon;
+                  const openHref = post.sourceHref ?? undefined;
+
+                  return (
+                    <article
+                      key={post.id}
+                      className="rounded-xl border border-border/45 bg-muted/10 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 gap-3">
+                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan/10 ring-1 ring-cyan/30">
+                            <Icon className="h-5 w-5 text-cyan" strokeWidth={1.8} />
                           </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-                            <span>{post.platform}</span>
-                            <span className="inline-flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-cyan" />
-                              {post.city}
-                            </span>
-                            <span>{post.foundAt}</span>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-md bg-muted/30 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground ring-1 ring-border/50">
+                                {String(currentPage * pageSize + index + 1).padStart(2, "0")}
+                              </span>
+                              <h3 className="truncate text-[14px] font-bold text-foreground">
+                                {post.account}
+                              </h3>
+                              <span
+                                className={`rounded-md px-2 py-0.5 text-[10px] font-medium ring-1 ${riskClass[post.risk]}`}
+                              >
+                                {riskLabels[post.risk]}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+                              <span>{post.platform}</span>
+                              <span className="inline-flex items-center gap-1">
+                                <MapPin className="h-3 w-3 text-cyan" />
+                                {post.city}
+                              </span>
+                              <span>{post.foundAt}</span>
+                            </div>
                           </div>
                         </div>
+                        <ShieldAlert className="h-4 w-4 shrink-0 text-orange" />
                       </div>
-                      <ShieldAlert className="h-4 w-4 shrink-0 text-orange" />
-                    </div>
 
-                    <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
-                      {post.excerpt}
-                    </p>
+                      <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
+                        {post.excerpt}
+                      </p>
 
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {post.evidence.map((item) => (
-                        <span
-                          key={item}
-                          className="rounded-md bg-card/70 px-2 py-1 text-[11px] text-foreground ring-1 ring-border/50"
-                        >
-                          {item}
-                        </span>
-                      ))}
-                    </div>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {post.evidence.map((item) => (
+                          <span
+                            key={item}
+                            className="rounded-md bg-card/70 px-2 py-1 text-[11px] text-foreground ring-1 ring-border/50"
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border/40 bg-card/35 px-3 py-2">
-                      <span className="min-w-0 truncate text-[11px] text-muted-foreground">
-                        {post.sourceUrl}
-                      </span>
-                      <ExternalLink className="h-3.5 w-3.5 shrink-0 text-cyan" />
+                      {openHref ? (
+                        <a
+                          href={openHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="min-w-0 truncate text-[11px] text-muted-foreground transition-colors hover:text-cyan"
+                        >
+                          {post.sourceUrl}
+                        </a>
+                      ) : (
+                        <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                          {post.sourceUrl}
+                        </span>
+                      )}
+                      {openHref ? (
+                        <a
+                          href={openHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-cyan/35 bg-cyan/10 px-2 py-1 text-[11px] font-medium text-cyan transition-colors hover:bg-cyan/15"
+                        >
+                          Открыть
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                        </a>
+                      ) : (
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-cyan" />
+                      )}
                     </div>
                   </article>
                 );
               })}
-            </div>
+              </div>
+            ) : (
+              <EmptyPanel text="Реальные публикации из Supabase пока не найдены или закрыты политиками RLS." />
+            )}
           </section>
         </main>
       </div>
@@ -244,9 +336,9 @@ function KazakhstanSignalMap() {
           />
         </svg>
 
-        {kazakhstanCitySignals.map((city) => (
-          <MapMarker key={city.city} city={city} />
-        ))}
+        <div className="absolute inset-0 grid place-items-center px-6 text-center text-[12px] leading-relaxed text-muted-foreground">
+          Геометки появятся после добавления поля city или извлечения города из JSON-данных.
+        </div>
       </div>
     </div>
   );
@@ -297,6 +389,32 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-xl border border-border/50 bg-muted/10 p-3 text-center">
       <span className="block text-[20px] font-bold leading-none text-foreground">{value}</span>
       <span className="mt-1 block text-[10px] uppercase text-muted-foreground">{label}</span>
+    </div>
+  );
+}
+
+function LoadingGrid() {
+  return (
+    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className="min-h-[180px] animate-pulse rounded-xl border border-border/45 bg-muted/10 p-3"
+        >
+          <div className="h-4 w-32 rounded bg-muted/40" />
+          <div className="mt-4 h-3 w-full rounded bg-muted/30" />
+          <div className="mt-2 h-3 w-2/3 rounded bg-muted/30" />
+          <div className="mt-6 h-8 rounded bg-muted/20" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyPanel({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-border/45 bg-muted/10 p-4 text-[13px] leading-relaxed text-muted-foreground">
+      {text}
     </div>
   );
 }

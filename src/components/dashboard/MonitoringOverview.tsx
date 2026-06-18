@@ -1,6 +1,14 @@
 import { ChevronDown, TrendingUp, Radar, Bell, FileText } from "lucide-react";
 
-export function MonitoringOverview() {
+type MonitoringOverviewProps = {
+  totalScanned?: string;
+  trendLabel?: string;
+};
+
+export function MonitoringOverview({
+  totalScanned = "1 248",
+  trendLabel = "+6.3%",
+}: MonitoringOverviewProps) {
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between">
@@ -16,28 +24,25 @@ export function MonitoringOverview() {
 
       <div className="mt-3 flex items-end gap-2">
         <span className="text-[34px] font-bold leading-none tracking-tight text-foreground">
-          1 248
+          {totalScanned}
         </span>
         <span className="mb-1 inline-flex items-center gap-1 rounded-md bg-glow-green/10 px-1.5 py-0.5 text-[11px] font-medium text-glow-green ring-1 ring-glow-green/20">
           <TrendingUp className="h-3 w-3" />
-          +6.3%
+          {trendLabel}
         </span>
       </div>
       <span className="text-[12px] text-muted-foreground">
-        Просканировано постов
+        Всего найдено иссточников
       </span>
 
       <div className="mt-4 grid grid-cols-3 gap-2">
         <button className="glass flex items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-cyan/35 hover:text-cyan">
-          <Radar className="h-3.5 w-3.5" />
           Источники
         </button>
         <button className="glass flex items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-cyan/35 hover:text-cyan">
-          <Bell className="h-3.5 w-3.5" />
           Оповещения
         </button>
         <button className="glass flex items-center justify-center gap-1.5 rounded-lg py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:border-cyan/35 hover:text-cyan">
-          <FileText className="h-3.5 w-3.5" />
           Отчёты
         </button>
       </div>

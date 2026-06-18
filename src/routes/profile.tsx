@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { Session, User } from "@supabase/supabase-js";
+import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -49,6 +49,17 @@ type ProfileForm = {
   bio: string;
 };
 
+type ProfileRow = {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  gender: string | null;
+  city: string | null;
+  title: string | null;
+  organization: string | null;
+  phone: string | null;
+};
+
 const emptyProfile: ProfileForm = {
   fullName: "",
   gender: "",
@@ -74,17 +85,17 @@ function ProfilePage() {
       return;
     }
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
-      setForm(profileFromUser(data.session?.user));
+      setForm(await profileFromSession(supabase, data.session));
       setIsLoading(false);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
-      setForm(profileFromUser(nextSession?.user));
+      setForm(await profileFromSession(supabase, nextSession));
     });
 
     return () => subscription.unsubscribe();
@@ -109,18 +120,46 @@ function ProfilePage() {
     }
 
     setIsSaving(true);
-    const { data, error } = await supabase.auth.updateUser({
-      data: {
-        full_name: form.fullName,
-        gender: form.gender,
-        city: form.city,
-        title: form.title,
-        organization: form.organization,
-        phone: form.phone,
-        bio: form.bio,
-        profile_completed_at: new Date().toISOString(),
-      },
-    });
+    if (!session) {
+      setMessage("Войдите в аккаунт, чтобы сохранить профиль.");
+      return;
+    }
+
+    const payload = {
+      user_id: session.user.id,
+      email: session.user.email ?? null,
+      full_name: form.fullName,
+      gender: form.gender,
+      city: form.city,
+      title: form.title,
+      organization: form.organization,
+      phone: form.phone,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("profile")
+      .upsert(payload, { onConflict: "user_id" })
+      .select(
+        "user_id, email, full_name, gender, city, title, organization, phone",
+      )
+      .single();
+
+    if (!error) {
+      await supabase.auth.updateUser({
+        data: {
+          full_name: form.fullName,
+          gender: form.gender,
+          city: form.city,
+          title: form.title,
+          organization: form.organization,
+          phone: form.phone,
+          bio: form.bio,
+          profile_completed_at: new Date().toISOString(),
+        },
+      });
+    }
+
     setIsSaving(false);
 
     if (error) {
@@ -128,11 +167,8 @@ function ProfilePage() {
       return;
     }
 
-    setSession((current) =>
-      current ? { ...current, user: data.user } : current,
-    );
-    setForm(profileFromUser(data.user));
-    setMessage("Профиль сохранен.");
+    setForm(profileFromRow(data as ProfileRow, session.user));
+    setMessage("Профиль сохранен в Supabase.");
   }
 
   return (
@@ -369,6 +405,41 @@ function profileFromUser(user?: User): ProfileForm {
     organization: String(metadata.organization ?? ""),
     phone: String(metadata.phone ?? ""),
     bio: String(metadata.bio ?? ""),
+  };
+}
+
+async function profileFromSession(
+  supabase: SupabaseClient,
+  session: Session | null,
+): Promise<ProfileForm> {
+  if (!session) {
+    return emptyProfile;
+  }
+
+  const { data, error } = await supabase
+    .from("profile")
+    .select("user_id, email, full_name, gender, city, title, organization, phone")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return profileFromUser(session.user);
+  }
+
+  return profileFromRow(data as ProfileRow, session.user);
+}
+
+function profileFromRow(row: ProfileRow, user?: User): ProfileForm {
+  const metadataProfile = profileFromUser(user);
+
+  return {
+    fullName: String(row.full_name ?? metadataProfile.fullName),
+    gender: String(row.gender ?? metadataProfile.gender),
+    city: String(row.city ?? metadataProfile.city),
+    title: String(row.title ?? metadataProfile.title),
+    organization: String(row.organization ?? metadataProfile.organization),
+    phone: String(row.phone ?? metadataProfile.phone),
+    bio: metadataProfile.bio,
   };
 }
 

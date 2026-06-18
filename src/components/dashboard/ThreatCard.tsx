@@ -4,18 +4,23 @@ import type { ThreatCardData } from "@/lib/dashboard-data";
 
 export function ThreatCard({ data }: { data: ThreatCardData }) {
   const isEscalating = data.accent === "red";
+  const targetHref = data.href ?? "/ai-analysis";
 
   return (
-    <div className="glass group relative flex flex-col overflow-hidden rounded-2xl p-4 transition-colors hover:border-cyan/45">
-      {/* top row */}
+    <a
+      href={targetHref}
+      data-threat-card-link
+      className="glass group relative flex flex-col overflow-hidden rounded-2xl p-4 transition-colors hover:border-cyan/45"
+      aria-label={`Открыть AI-анализ: ${data.title}`}
+    >
       <div className="flex items-start justify-between">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase text-glow-green">
           <span className="h-1.5 w-1.5 rounded-full bg-glow-green" />
           {data.label}
         </span>
-        <button className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-cyan">
+        <span className="grid h-6 w-6 place-items-center rounded-md text-muted-foreground transition-colors group-hover:bg-muted/40 group-hover:text-cyan">
           <ArrowUpRight className="h-4 w-4" />
-        </button>
+        </span>
       </div>
 
       <h3 className="mt-3 text-[15px] font-semibold text-foreground">
@@ -46,6 +51,6 @@ export function ThreatCard({ data }: { data: ThreatCardData }) {
       </span>
 
       <MiniChart accent={data.accent} className="mt-3 h-12 w-full" />
-    </div>
+    </a>
   );
 }

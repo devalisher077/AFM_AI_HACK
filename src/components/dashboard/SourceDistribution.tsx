@@ -1,6 +1,10 @@
-import { sourceDistribution } from "@/lib/dashboard-data";
+import { sourceDistribution, type SourceSlice } from "@/lib/dashboard-data";
 
-export function SourceDistribution() {
+export function SourceDistribution({
+  data = sourceDistribution,
+}: {
+  data?: SourceSlice[];
+}) {
   const size = 150;
   const stroke = 14;
   const radius = (size - stroke) / 2;
@@ -8,7 +12,7 @@ export function SourceDistribution() {
   const gap = 3; // percent gap between slices
 
   let offset = 0;
-  const segments = sourceDistribution.map((slice) => {
+  const segments = data.map((slice) => {
     const len = (slice.value / 100) * circ;
     const seg = {
       ...slice,
@@ -56,7 +60,7 @@ export function SourceDistribution() {
           <div className="absolute inset-0 grid place-items-center">
             <div className="text-center">
               <span className="block text-[18px] font-bold leading-none text-foreground">
-                4
+                {data.length}
               </span>
               <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
                 Источника
@@ -66,7 +70,7 @@ export function SourceDistribution() {
         </div>
 
         <div className="flex-1 space-y-2.5">
-          {sourceDistribution.map((slice) => (
+          {data.map((slice) => (
             <div
               key={slice.label}
               className="flex items-center justify-between gap-2"
