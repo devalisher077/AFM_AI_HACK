@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { Bot, Send, X } from "lucide-react";
 import { AuthPanel } from "@/components/auth/AuthPanel";
 import { navItems } from "@/lib/dashboard-data";
+import { fetchAiAnalysisPage } from "@/lib/supabase-ai-analysis";
 
 type AgentMessage = {
   id: number;
@@ -11,6 +13,7 @@ type AgentMessage = {
 };
 
 export function Sidebar() {
+  const queryClient = useQueryClient();
   const [isAgentOpen, setIsAgentOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -76,6 +79,14 @@ export function Sidebar() {
     }
   }
 
+  function preloadAiAnalysisFromDatabase() {
+    void queryClient.prefetchQuery({
+      queryKey: ["ai-analysis-page", 0, 10, 0, "6h"],
+      queryFn: () => fetchAiAnalysisPage(0, 10, 0, "6h"),
+      staleTime: 15_000,
+    });
+  }
+
   return (
     <aside className="glass flex min-h-[220px] w-full shrink-0 overflow-hidden border-border/60 p-3 lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:min-h-[620px] lg:w-[200px]">
       <div
@@ -87,7 +98,6 @@ export function Sidebar() {
       >
         <AuthPanel />
 
-        {/* Nav */}
         <nav className="mt-4 flex flex-wrap gap-0.5 lg:flex-col">
           {navItems.map((item) => {
             const content = (
@@ -113,6 +123,21 @@ export function Sidebar() {
                 key={item.label}
                 to={item.href}
                 activeOptions={{ exact: item.href === "/" }}
+                onFocus={
+                  item.href === "/ai-analysis"
+                    ? preloadAiAnalysisFromDatabase
+                    : undefined
+                }
+                onPointerEnter={
+                  item.href === "/ai-analysis"
+                    ? preloadAiAnalysisFromDatabase
+                    : undefined
+                }
+                onTouchStart={
+                  item.href === "/ai-analysis"
+                    ? preloadAiAnalysisFromDatabase
+                    : undefined
+                }
                 className="flex min-w-fit items-center gap-2.5 px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground lg:min-w-0 [&.active]:bg-muted/30 [&.active]:font-medium [&.active]:text-foreground [&.active]:ring-1 [&.active]:ring-border/60"
               >
                 {content}

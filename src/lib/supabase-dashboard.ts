@@ -209,7 +209,7 @@ export const emptyDashboardData: DashboardLiveData = {
   hasData: false,
 };
 
-function periodToCutoffIso(period: DashboardPeriod) {
+export function periodToCutoffIso(period: DashboardPeriod) {
   const hoursByPeriod: Record<DashboardPeriod, number> = {
     "6h": 6,
     "12h": 12,

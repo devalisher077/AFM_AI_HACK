@@ -15,12 +15,10 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import {
   type AiAnalysisItem,
   fallbackAiAnalysisPageData,
-  emptyAiAnalysisData,
   fetchAiAnalysisByHash,
   fetchAiAnalysisPage,
-  fetchAiAnalysisLiveData,
-  fetchAiAnalysisRaw,
 } from "@/lib/supabase-ai-analysis";
+import type { DashboardPeriod } from "@/lib/supabase-dashboard";
 
 export const Route = createFileRoute("/ai-analysis")({
   head: () => ({
@@ -37,34 +35,34 @@ export const Route = createFileRoute("/ai-analysis")({
 });
 
 const pageSize = 10;
+const periodFilters: { label: string; value: DashboardPeriod }[] = [
+  { label: "6 ч", value: "6h" },
+  { label: "12 ч", value: "12h" },
+  { label: "24 ч", value: "24h" },
+  { label: "7 д", value: "7d" },
+  { label: "30 д", value: "30d" },
+];
 const riskFilters = [
   { label: "Все", value: 0 },
-  { label: ">50", value: 50 },
-  { label: ">70", value: 70 },
-  { label: ">90", value: 90 },
+  { label: "Риск > 50", value: 50 },
+  { label: "Риск > 70", value: 70 },
+  { label: "Риск > 90", value: 90 },
 ];
 
 function AiAnalysisPage() {
   const [page, setPage] = useState(0);
+  const [period, setPeriod] = useState<DashboardPeriod>("6h");
   const [riskThreshold, setRiskThreshold] = useState(0);
   const [focusHash, setFocusHash] = useState<string | null>(null);
   const analysisListTopRef = useRef<HTMLDivElement | null>(null);
   const focusPanelRef = useRef<HTMLDivElement | null>(null);
   const shouldScrollToListRef = useRef(false);
-  const { data } = useQuery({
-    queryKey: ["ai-analysis-live-data"],
-    queryFn: fetchAiAnalysisLiveData,
-    staleTime: 60_000,
-    refetchInterval: 120_000,
-  });
-  const { data: analysisPage, isFetching } = useQuery({
-    queryKey: ["ai-analysis-page", page, pageSize, riskThreshold],
-    queryFn: () => fetchAiAnalysisPage(page, pageSize, riskThreshold),
-    placeholderData: (previousData) => previousData,
-    initialData:
-      page === 0 && riskThreshold === 0
-        ? fallbackAiAnalysisPageData
-        : undefined,
+  const {
+    data: analysisPage,
+    isLoading: isPageLoading,
+  } = useQuery({
+    queryKey: ["ai-analysis-page", page, pageSize, riskThreshold, period],
+    queryFn: () => fetchAiAnalysisPage(page, pageSize, riskThreshold, period),
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
@@ -74,8 +72,8 @@ function AiAnalysisPage() {
     enabled: Boolean(focusHash),
     staleTime: 60_000,
   });
-  const summaryData = data ?? emptyAiAnalysisData;
   const pageData = analysisPage ?? fallbackAiAnalysisPageData;
+  const isInitialPageLoading = isPageLoading && !analysisPage;
   const canGoBack = page > 0;
   const canGoNext = page + 1 < pageData.pageCount;
 
@@ -131,6 +129,12 @@ function AiAnalysisPage() {
     setPage(0);
   }
 
+  function changePeriod(nextPeriod: DashboardPeriod) {
+    shouldScrollToListRef.current = true;
+    setPeriod(nextPeriod);
+    setPage(0);
+  }
+
   return (
     <div className="min-h-screen p-3 md:p-4 lg:p-5">
       <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-none flex-col gap-4 md:min-h-[calc(100vh-2rem)] lg:min-h-[calc(100vh-2.5rem)] lg:flex-row lg:gap-5">
@@ -147,20 +151,20 @@ function AiAnalysisPage() {
                 Назад к дашборду
               </Link>
 
-              <div className="grid gap-5 xl:grid-cols-[1fr_360px]">
+              <div>
                 <div>
-                  <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-foreground">
+                  <h1 className="text-3xl font-bold tracking-tight text-foreground">
                     AI-анализ источников угроз
                   </h1>
-                  <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
+                  <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
                     Система объединяет открытые источники, выделяет
                     повторяющиеся признаки мошеннических схем и показывает,
                     откуда именно пришел рискованный сигнал.
                   </p>
-                  <div className="mt-4 max-w-3xl overflow-hidden border border-border/45 bg-muted/10">
+                  <div className="mt-4 overflow-hidden border border-border/45 bg-muted/10">
                     <div className="flex gap-3 px-4 py-3">
                       <AlertTriangle
-                        className="mt-0.5 h-5 w-5 shrink-0 text-foreground"
+                        className="mt-0.5 h-5 w-5 shrink-0 text-yellow-300"
                         strokeWidth={2.1}
                       />
                       <p className="text-[13px] font-semibold leading-relaxed text-foreground">
@@ -170,12 +174,6 @@ function AiAnalysisPage() {
                       </p>
                     </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <Metric label="точность" value={summaryData.accuracy} />
-                  <Metric label="источника" value={summaryData.sourcesCount} />
-                  <Metric label="синхр." value={summaryData.syncLabel} />
                 </div>
               </div>
             </div>
@@ -188,34 +186,52 @@ function AiAnalysisPage() {
                   Все AI-анализы
                 </h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
-                  Новые записи всегда сверху. Можно отфильтровать по risk_score.
+                  Новые записи всегда сверху. Можно отфильтровать по времени и
+                  risk_score.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center border border-border/50 bg-muted/10 p-1">
+                <select
+                  className="h-[34px] cursor-pointer border border-border/50 bg-muted/10 px-2.5 text-[11px] font-medium text-muted-foreground outline-none transition-colors hover:bg-muted/20 hover:text-foreground focus:border-cyan/40 focus:text-cyan"
+                  value={period}
+                  onChange={(event) =>
+                    changePeriod(event.target.value as DashboardPeriod)
+                  }
+                >
+                  {periodFilters.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-[34px] cursor-pointer border border-border/50 bg-muted/10 px-2.5 text-[11px] font-medium text-muted-foreground outline-none transition-colors hover:bg-muted/20 hover:text-foreground focus:border-cyan/40 focus:text-cyan"
+                  value={riskThreshold}
+                  onChange={(event) =>
+                    changeRiskThreshold(Number(event.target.value))
+                  }
+                >
                   {riskFilters.map((filter) => (
-                    <button
+                    <option
                       key={filter.value}
-                      type="button"
-                      onClick={() => changeRiskThreshold(filter.value)}
-                      className={
-                        riskThreshold === filter.value
-                          ? "h-7 border border-border/60 bg-muted/30 px-2.5 text-[11px] font-bold text-foreground shadow-sm"
-                          : "h-7 px-2.5 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
-                      }
+                      value={filter.value}
                     >
                       {filter.label}
-                    </button>
+                    </option>
                   ))}
-                </div>
-                <Metric label="всего" value={String(pageData.total)} />
+                </select>
+                <Metric
+                  label="всего"
+                  value={isInitialPageLoading ? "-" : String(pageData.total)}
+                />
                 <Metric
                   label="страница"
-                  value={`${page + 1}/${pageData.pageCount}`}
+                  value={
+                    isInitialPageLoading
+                      ? "-"
+                      : `${page + 1}/${pageData.pageCount}`
+                  }
                 />
-                <span className="border border-border/50 bg-muted/10 px-2 py-1 text-[11px] font-medium text-foreground">
-                  {isFetching ? "обновление..." : "auto refresh"}
-                </span>
               </div>
             </div>
 
@@ -256,7 +272,9 @@ function AiAnalysisPage() {
               </div>
             ) : null}
             <div className="space-y-3">
-              {pageData.items.length > 0 ? (
+              {isInitialPageLoading ? (
+                <AiAnalysisListLoading />
+              ) : pageData.items.length > 0 ? (
                 pageData.items.map((item) => (
                   <AiAnalysisCard key={item.id} item={item} />
                 ))
@@ -303,19 +321,37 @@ function AiAnalysisPage() {
   );
 }
 
-function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
-  const [isRawOpen, setIsRawOpen] = useState(false);
-  const { data: rawAnalysis, isFetching: isRawFetching } = useQuery({
-    queryKey: ["ai-analysis-raw", item.id],
-    queryFn: () => fetchAiAnalysisRaw(item),
-    enabled: isRawOpen,
-    staleTime: 5 * 60_000,
-  });
+function AiAnalysisListLoading() {
+  return (
+    <>
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="min-h-[220px] animate-pulse border border-border/45 bg-muted/10 p-3"
+        >
+          <div className="mb-4 flex flex-wrap gap-2">
+            <div className="h-6 w-24 bg-muted/40" />
+            <div className="h-6 w-20 bg-muted/30" />
+            <div className="h-6 w-32 bg-muted/30" />
+          </div>
+          <div className="h-4 w-56 bg-muted/40" />
+          <div className="mt-3 h-3 w-full bg-muted/30" />
+          <div className="mt-2 h-3 w-3/4 bg-muted/30" />
+          <div className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="h-24 border border-border/40 bg-card/30" />
+            <div className="h-24 border border-border/40 bg-card/30" />
+          </div>
+        </div>
+      ))}
+    </>
+  );
+}
 
+function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
   return (
     <article className="min-w-0 overflow-hidden border border-border/45 bg-muted/10 p-3">
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="min-w-0">
+      <div>
+        <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 font-bold text-red-600">
               <ShieldAlert className="h-[18px] w-[18px]" strokeWidth={2.1} />
@@ -328,9 +364,6 @@ function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
               <MapPin className="h-[18px] w-[18px]" strokeWidth={2.1} />
               KZ = {item.kzRelevanceScore}
             </span>
-            <span className="border border-border/50 bg-muted/40 px-2 py-0.5 text-[10px] text-muted-foreground">
-              confidence {item.confidence}
-            </span>
             <span className="text-[11px] text-muted-foreground">
               {item.analyzedAt}
             </span>
@@ -338,20 +371,22 @@ function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
           <h3 className="text-[15px] font-bold text-foreground">
             {item.threatType}
           </h3>
+          <p className="mt-2 text-[13px] leading-relaxed text-foreground/85">
+            <span className="font-semibold text-blue-400">Рекомендация:</span>{" "}
+            {localizeRecommendedAction(item.recommendedAction)}
+          </p>
           <p className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
             {item.reasoningShort}
           </p>
-        </div>
-
-        <div className="grid shrink-0 grid-cols-2 gap-2 text-[11px] xl:w-[280px]">
-          <MiniFact label="run" value={item.runId} />
-          <MiniFact label="rank" value={item.rank} />
-          <MiniFact label="model" value={item.model} />
-          <MiniFact label="false +" value={item.isFalsePositive} />
+          {item.error !== "-" ? (
+            <p className="mt-2 break-words border border-border/50 bg-muted/10 p-2 text-[11px] text-foreground">
+              {item.error}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-3 grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mt-3 min-w-0">
         <div className="min-w-0 overflow-hidden border border-border/40 bg-card/30 p-3">
           <div className="mb-2 flex items-center justify-between gap-3">
             <h4 className="text-[12px] font-semibold text-foreground">
@@ -373,55 +408,14 @@ function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
             {item.postTitle}
           </p>
           <p className="mt-1 break-words text-[12px] leading-relaxed text-muted-foreground">
-            {item.postSnippet}
+            {previewText(item.postSnippet, 260)}
           </p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Tag>{item.postPlatform}</Tag>
             <Tag>{item.postSource}</Tag>
-            <Tag>hash {item.urlHash}</Tag>
           </div>
         </div>
-
-        <div className="min-w-0 overflow-hidden border border-border/40 bg-card/30 p-3">
-          <h4 className="text-[12px] font-semibold text-foreground">
-            Действие
-          </h4>
-          <p className="mt-1 break-words text-[12px] leading-relaxed text-muted-foreground">
-            {item.recommendedAction}
-          </p>
-          {item.error !== "-" ? (
-            <p className="mt-2 break-words border border-border/50 bg-muted/10 p-2 text-[11px] text-foreground">
-              {item.error}
-            </p>
-          ) : null}
-        </div>
       </div>
-
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {item.keySignals.length > 0 ? (
-          item.keySignals.map((signal) => <Tag key={signal}>{signal}</Tag>)
-        ) : (
-          <Tag>key_signals пусто</Tag>
-        )}
-      </div>
-
-      <details
-        className="mt-3 border border-border/40 bg-card/25 p-3"
-        onToggle={(event) => setIsRawOpen(event.currentTarget.open)}
-      >
-        <summary className="cursor-pointer text-[12px] font-semibold text-foreground">
-          raw_analysis / все JSON-данные
-        </summary>
-        <pre className="mt-3 max-h-[320px] overflow-auto whitespace-pre-wrap text-[11px] leading-relaxed text-muted-foreground">
-          {isRawFetching
-            ? "Загрузка raw_analysis..."
-            : (rawAnalysis ?? item.rawAnalysis)}
-        </pre>
-        <div className="mt-3 grid gap-2 text-[11px] text-muted-foreground md:grid-cols-2">
-          <MiniFact label="updated_at" value={item.updatedAt} />
-          <MiniFact label="url_hash" value={item.urlHash} />
-        </div>
-      </details>
     </article>
   );
 }
@@ -434,25 +428,40 @@ function EmptyPanel({ text }: { text: string }) {
   );
 }
 
-function MiniFact({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 border border-border/40 bg-muted/10 px-2 py-1.5">
-      <span className="block text-[10px] uppercase text-muted-foreground">
-        {label}
-      </span>
-      <span className="block truncate text-[11px] font-medium text-foreground">
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function Tag({ children }: { children: string }) {
   return (
     <span className="min-w-0 max-w-full break-all border border-border/50 bg-card/70 px-2 py-1 text-[11px] text-foreground">
       {children}
     </span>
   );
+}
+
+function previewText(value: string, maxLength: number) {
+  if (value.length <= maxLength || value === "-") {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}...`;
+}
+
+function localizeRecommendedAction(value: string) {
+  if (value === "-") {
+    return value;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  const translations: Record<string, string> = {
+    monitor: "Продолжить мониторинг.",
+    "continue monitoring": "Продолжить мониторинг.",
+    review: "Передать на ручную проверку.",
+    "manual review": "Передать на ручную проверку.",
+    investigate: "Провести дополнительную проверку источника.",
+    escalate: "Передать на эскалацию.",
+    block: "Рассмотреть блокировку источника.",
+    ignore: "Не предпринимать действий без дополнительных подтверждений.",
+  };
+
+  return translations[normalized] ?? value;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

@@ -10,8 +10,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Line,
   LineChart,
@@ -72,7 +70,7 @@ export function ReportDetail({ report }: ReportDetailProps) {
         </div>
       </header>
 
-      <section className="grid gap-px border-b border-border/50 bg-border/40 md:grid-cols-4">
+      <section className="grid gap-px border-b border-border/50 bg-border/40 md:grid-cols-3">
         <ReportMetric
           label="Просканировано"
           value={report.statistics.totalPosts}
@@ -81,34 +79,15 @@ export function ReportDetail({ report }: ReportDetailProps) {
           label="Активных источников"
           value={report.statistics.activeAccounts}
         />
-        <ReportMetric
-          label="География"
-          value={report.statistics.citiesAffected}
-        />
         <ReportMetric label="Динамика" value={report.statistics.growthRate} />
       </section>
 
       <div className="px-6 py-5">
-        <section className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+        <section>
           <div>
             <SectionHeading title="Описание ситуации" />
             <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
               {report.detailedDescription}
-            </p>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <SectionHeading title="AI-вывод" />
-              <span className="text-[12px] font-semibold text-foreground">
-                {report.aiSummary.confidence}
-              </span>
-            </div>
-            <p className="mt-3 text-[13px] leading-relaxed text-foreground/85">
-              {report.aiSummary.modelVerdict}
-            </p>
-            <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
-              {report.aiSummary.nextAction}
             </p>
           </div>
         </section>
@@ -132,24 +111,12 @@ export function ReportDetail({ report }: ReportDetailProps) {
         </section>
 
         <Tabs defaultValue="overview" className="mt-6 w-full">
-          <TabsList className="grid h-auto w-full grid-cols-2 rounded-none bg-muted/20 md:grid-cols-3 xl:grid-cols-6">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-none bg-muted/20">
             <TabsTrigger className="rounded-none" value="overview">
               Обзор
             </TabsTrigger>
-            <TabsTrigger className="rounded-none" value="analysis">
-              AI-вывод
-            </TabsTrigger>
             <TabsTrigger className="rounded-none" value="sources">
               Источники
-            </TabsTrigger>
-            <TabsTrigger className="rounded-none" value="cities">
-              География
-            </TabsTrigger>
-            <TabsTrigger className="rounded-none" value="accounts">
-              Аккаунты
-            </TabsTrigger>
-            <TabsTrigger className="rounded-none" value="posts">
-              Доказательства
             </TabsTrigger>
           </TabsList>
 
@@ -212,67 +179,6 @@ export function ReportDetail({ report }: ReportDetailProps) {
               </div>
             </section>
 
-            <section>
-              <SectionHeading title="Основные аккаунты" />
-              <div className="mt-3 overflow-hidden border border-border/45">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Аккаунт</TableHead>
-                      <TableHead>Платформа</TableHead>
-                      <TableHead>Подписчики</TableHead>
-                      <TableHead>Публикации</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.topAccounts.map((account) => (
-                      <TableRow key={`${account.platform}-${account.name}`}>
-                        <TableCell className="font-medium text-foreground">
-                          {account.name}
-                        </TableCell>
-                        <TableCell>{account.platform}</TableCell>
-                        <TableCell>{account.subscribers}</TableCell>
-                        <TableCell>{account.posts}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="analysis" className="mt-5 space-y-8">
-            <section className="grid gap-8 xl:grid-cols-[1fr_360px]">
-              <div>
-                <SectionHeading title="Обнаруженные AI-паттерны" />
-                <div className="mt-3 divide-y divide-border/45">
-                  {report.aiFindings.map((finding) => (
-                    <p
-                      key={finding}
-                      className="py-3 text-[13px] leading-relaxed text-muted-foreground"
-                    >
-                      {finding}
-                    </p>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <SectionHeading title="План реакции" />
-                <ol className="mt-3 space-y-3">
-                  {report.responsePlan.map((step, index) => (
-                    <li key={step} className="flex gap-3">
-                      <span className="mt-0.5 text-[12px] font-bold text-foreground">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <p className="text-[13px] leading-relaxed text-muted-foreground">
-                        {step}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </section>
           </TabsContent>
 
           <TabsContent value="sources" className="mt-5">
@@ -318,131 +224,6 @@ export function ReportDetail({ report }: ReportDetailProps) {
             </section>
           </TabsContent>
 
-          <TabsContent value="cities" className="mt-5 space-y-6">
-            <section>
-              <SectionHeading title="Публикации по географии" />
-              <div className="mt-3 h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={report.topCities}>
-                    <CartesianGrid
-                      strokeDasharray="3 3"
-                      stroke="var(--border)"
-                    />
-                    <XAxis
-                      dataKey="city"
-                      tick={{ fontSize: 11 }}
-                      stroke="var(--muted-foreground)"
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11 }}
-                      stroke="var(--muted-foreground)"
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "var(--background)",
-                        border: "1px solid var(--border)",
-                      }}
-                      labelStyle={{ color: "var(--foreground)" }}
-                    />
-                    <Bar dataKey="posts" fill="var(--foreground)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            <div className="overflow-hidden border border-border/45">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>География</TableHead>
-                    <TableHead>Первое обнаружение</TableHead>
-                    <TableHead>Публикации</TableHead>
-                    <TableHead>Аккаунты</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {report.topCities.map((city) => (
-                    <TableRow key={city.city}>
-                      <TableCell className="font-medium text-foreground">
-                        {city.city}
-                      </TableCell>
-                      <TableCell>{city.firstDetected}</TableCell>
-                      <TableCell>{city.posts}</TableCell>
-                      <TableCell>{city.accounts}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="accounts" className="mt-5">
-            <section>
-              <SectionHeading title="Анализ аккаунтов" />
-              <div className="mt-3 overflow-hidden border border-border/45">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Аккаунт</TableHead>
-                      <TableHead>Платформа</TableHead>
-                      <TableHead>Создан</TableHead>
-                      <TableHead>Подписчики</TableHead>
-                      <TableHead>Публикации</TableHead>
-                      <TableHead>Вовлечение</TableHead>
-                      <TableHead>Ключевые признаки</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {report.accountAnalysis.map((account) => (
-                      <TableRow key={`${account.platform}-${account.account}`}>
-                        <TableCell className="font-medium text-foreground">
-                          {account.account}
-                        </TableCell>
-                        <TableCell>{account.platform}</TableCell>
-                        <TableCell>{account.createdDate}</TableCell>
-                        <TableCell>
-                          {account.subscribers.toLocaleString()}
-                        </TableCell>
-                        <TableCell>{account.postsCount}</TableCell>
-                        <TableCell>{account.engagementRate}</TableCell>
-                        <TableCell className="max-w-[280px]">
-                          {account.riskFactors.length > 0
-                            ? account.riskFactors.join(", ")
-                            : "-"}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="posts" className="mt-5">
-            <section>
-              <SectionHeading title="Доказательная база" />
-              <div className="mt-3 divide-y divide-border/45">
-                {report.recentPosts.map((post) => (
-                  <article key={post.id} className="py-4">
-                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="font-semibold text-foreground">
-                        {post.account}
-                      </h3>
-                      <p className="text-[11px] text-muted-foreground">
-                        {post.date} · {post.platform}
-                      </p>
-                    </div>
-                    <p className="mt-2 text-sm leading-relaxed text-foreground/80">
-                      {post.excerpt}
-                    </p>
-                    <p className="mt-2 text-[11px] text-muted-foreground">
-                      {post.engagement}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            </section>
-          </TabsContent>
         </Tabs>
       </div>
     </article>

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { riskLabels, type RiskLevel } from "@/lib/dashboard-data";
+import type { DashboardPeriod } from "@/lib/supabase-dashboard";
 import {
   emptySourcesData,
   fetchSourcePostById,
@@ -29,13 +30,22 @@ const riskClass: Record<RiskLevel, string> = {
   Medium: "border-border/50 bg-muted/20 text-foreground",
 };
 
+const periods: { label: string; value: DashboardPeriod }[] = [
+  { label: "6 ч", value: "6h" },
+  { label: "12 ч", value: "12h" },
+  { label: "24 ч", value: "24h" },
+  { label: "7 д", value: "7d" },
+  { label: "30 д", value: "30d" },
+];
+
 function SourcesPage() {
   const pageSize = 10;
   const [page, setPage] = useState(0);
+  const [period, setPeriod] = useState<DashboardPeriod>("6h");
   const [focusedPostId, setFocusedPostId] = useState<string | null>(null);
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["sources-live-data"],
-    queryFn: fetchSourcesLiveData,
+    queryKey: ["sources-live-data", period],
+    queryFn: () => fetchSourcesLiveData(period),
     staleTime: 60_000,
     refetchInterval: 120_000,
   });
@@ -83,6 +93,11 @@ function SourcesPage() {
     setFocusedPostId(new URLSearchParams(window.location.search).get("focus"));
   }, []);
 
+  function changePeriod(nextPeriod: DashboardPeriod) {
+    setPeriod(nextPeriod);
+    setPage(0);
+  }
+
   useEffect(() => {
     if (!focusedPostId || sourceData.posts.length === 0) {
       return;
@@ -126,31 +141,23 @@ function SourcesPage() {
                 Назад к дашборду
               </Link>
 
-              <div className="grid gap-5 xl:grid-cols-[1fr_380px]">
+              <div className="grid gap-5 xl:grid-cols-[1fr_300px]">
                 <div>
-                  <div className="mb-2 inline-flex border border-border/50 bg-muted/10 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
-                    Источники · live география
-                  </div>
                   <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                    Где найден каждый пост
+                    Найденные источники
                   </h1>
-                  <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-muted-foreground">
-                    Раздел показывает исходный аккаунт, ссылку, город
-                    обнаружения и признаки, которые помогли связать публикацию с
+                  <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+                    Раздел показывает исходный аккаунт, ссылку и признаки которые помогли связать публикацию с
                     кластером угроз.
                   </p>
                 </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <Metric label="городов" value="0" />
-                  <Metric
-                    label="постов"
-                    value={String(sourceData.totalPosts)}
-                  />
-                  <Metric
-                    label="критич."
-                    value={String(sourceData.criticalPosts)}
-                  />
+                <div className="border border-border/50 bg-muted/10 p-4">
+                  <span className="block text-[11px] uppercase text-muted-foreground">
+                    всего найдено источников
+                  </span>
+                  <span className="mt-2 block text-[34px] font-bold leading-none tracking-tight text-foreground">
+                    {isLoading ? "-" : sourceData.totalPosts}
+                  </span>
                 </div>
               </div>
             </div>
@@ -162,7 +169,7 @@ function SourcesPage() {
                 <h2 className="text-[17px] font-bold text-foreground">
                   {isFocusedView
                     ? "Выбранный источник"
-                    : "Найденные публикации"}
+                    : "Найденные источники"}
                 </h2>
                 <p className="mt-1 text-[12px] text-muted-foreground">
                   {isLoading
@@ -176,6 +183,19 @@ function SourcesPage() {
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <select
+                  className="h-9 cursor-pointer border border-border/60 bg-muted/10 px-3 text-[12px] font-medium text-muted-foreground outline-none transition-colors hover:bg-muted/25 hover:text-foreground focus:border-cyan/40 focus:text-cyan"
+                  value={period}
+                  onChange={(event) =>
+                    changePeriod(event.target.value as DashboardPeriod)
+                  }
+                >
+                  {periods.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
                 <div className="border border-border/60 bg-muted/10 px-3 py-2 text-[11px] font-medium text-muted-foreground">
                   {isFocusedView
                     ? focusedPost
@@ -219,12 +239,6 @@ function SourcesPage() {
                       }
                     >
                       Дальше
-                    </button>
-                    <button className="inline-flex h-9 items-center border border-border/60 bg-muted/10 px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted/25 hover:text-foreground">
-                      Поиск
-                    </button>
-                    <button className="inline-flex h-9 items-center border border-border/60 bg-muted/10 px-3 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted/25 hover:text-foreground">
-                      Фильтр
                     </button>
                   </>
                 )}
@@ -286,7 +300,7 @@ function SourcesPage() {
                       </div>
 
                       <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
-                        {post.excerpt}
+                        {previewText(post.excerpt, 240)}
                       </p>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
@@ -344,19 +358,6 @@ function SourcesPage() {
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-border/50 bg-muted/10 p-3 text-center">
-      <span className="block text-[20px] font-bold leading-none text-foreground">
-        {value}
-      </span>
-      <span className="mt-1 block text-[10px] uppercase text-muted-foreground">
-        {label}
-      </span>
-    </div>
-  );
-}
-
 function LoadingGrid() {
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
@@ -373,6 +374,14 @@ function LoadingGrid() {
       ))}
     </div>
   );
+}
+
+function previewText(value: string, maxLength: number) {
+  if (value.length <= maxLength || value === "-") {
+    return value;
+  }
+
+  return `${value.slice(0, maxLength).trimEnd()}...`;
 }
 
 function EmptyPanel({ text }: { text: string }) {

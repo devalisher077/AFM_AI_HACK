@@ -10,6 +10,10 @@ import {
   type RiskLevel,
   type SourcePlatform,
 } from "@/lib/dashboard-data";
+import {
+  periodToCutoffIso,
+  type DashboardPeriod,
+} from "@/lib/supabase-dashboard";
 import { getSupabaseClient } from "@/lib/supabase";
 
 type MediaItemRow = {
@@ -53,7 +57,9 @@ export const emptySourcesData: SourcesLiveData = {
   errorMessage: null,
 };
 
-export async function fetchSourcesLiveData(): Promise<SourcesLiveData> {
+export async function fetchSourcesLiveData(
+  period: DashboardPeriod = "6h",
+): Promise<SourcesLiveData> {
   const supabase = getSupabaseClient();
 
   if (!supabase) {
@@ -63,17 +69,24 @@ export async function fetchSourcesLiveData(): Promise<SourcesLiveData> {
     };
   }
 
-  const [mediaResult, analysisResult] = await Promise.all([
+  const cutoffIso = periodToCutoffIso(period);
+  const [mediaResult, mediaCountResult, analysisResult] = await Promise.all([
     supabase
       .from("media_items")
       .select(
         "url_hash, url, platform, source_type, title, snippet, published_at, channel_name, channel_url, risk_score, risk_signals, kz_signals, bookmaker_brands, threat_type, status, updated_at, created_at",
       )
-      .order("updated_at", { ascending: false, nullsFirst: false })
+      .gte("created_at", cutoffIso)
+      .order("created_at", { ascending: false, nullsFirst: false })
       .limit(80),
+    supabase
+      .from("media_items")
+      .select("url_hash", { count: "exact", head: true })
+      .gte("created_at", cutoffIso),
     supabase
       .from("ai_analyses")
       .select("url_hash, risk_score, threat_type, key_signals")
+      .gte("analyzed_at", cutoffIso)
       .order("analyzed_at", { ascending: false, nullsFirst: false })
       .limit(160),
   ]);
@@ -109,9 +122,12 @@ export async function fetchSourcesLiveData(): Promise<SourcesLiveData> {
 
   return {
     posts,
-    totalPosts: posts.length,
+    totalPosts: mediaCountResult.error
+      ? posts.length
+      : (mediaCountResult.count ?? posts.length),
     criticalPosts: posts.filter((post) => post.risk === "Critical").length,
-    errorMessage: analysisResult.error?.message ?? null,
+    errorMessage:
+      mediaCountResult.error?.message ?? analysisResult.error?.message ?? null,
   };
 }
 
