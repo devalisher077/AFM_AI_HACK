@@ -45,7 +45,7 @@ export const Route = createFileRoute("/")({
 
 function Dashboard() {
   const [period, setPeriod] = useState<DashboardPeriod>("6h");
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["dashboard-live-data", period],
     queryFn: () => fetchDashboardLiveData(period),
     staleTime: 30_000,
@@ -123,6 +123,7 @@ function Dashboard() {
                 period={period}
                 totalScanned={dashboardData.totalScanned}
                 onPeriodChange={setPeriod}
+                onParsingStarted={() => refetch()}
               />
               {dashboardData.connectorHealth.length > 0 ? (
                 <ConnectorStatusView

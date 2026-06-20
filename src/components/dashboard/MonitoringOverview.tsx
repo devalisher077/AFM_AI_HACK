@@ -1,9 +1,14 @@
+import { LoaderCircle, Play } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { startBackendParsing } from "@/lib/parser-api";
 import type { DashboardPeriod } from "@/lib/supabase-dashboard";
 
 type MonitoringOverviewProps = {
   period: DashboardPeriod;
   totalScanned?: string;
   onPeriodChange: (period: DashboardPeriod) => void;
+  onParsingStarted?: () => void | Promise<void>;
 };
 
 const periods: { label: string; value: DashboardPeriod }[] = [
@@ -18,7 +23,34 @@ export function MonitoringOverview({
   period,
   totalScanned = "1 248",
   onPeriodChange,
+  onParsingStarted,
 }: MonitoringOverviewProps) {
+  const [status, setStatus] = useState<
+    "idle" | "starting" | "started" | "error"
+  >("idle");
+  const [message, setMessage] = useState("Готово к запуску backend парсинга");
+
+  async function handleStartParsing() {
+    setStatus("starting");
+    setMessage("Отправляем команду на backend...");
+
+    try {
+      await startBackendParsing();
+      setStatus("started");
+      setMessage("Парсинг запущен. Данные обновятся после обработки.");
+      await onParsingStarted?.();
+    } catch (error) {
+      setStatus("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Не удалось запустить парсинг.",
+      );
+    }
+  }
+
+  const isStarting = status === "starting";
+
   return (
     <section>
       <div className="flex items-center justify-between">
@@ -48,6 +80,28 @@ export function MonitoringOverview({
       <span className="text-[12px] text-muted-foreground">
         Всего найдено иссточников
       </span>
+
+      <div className="mt-5 border-t border-border/45 pt-4">
+        <Button
+          className="h-10 w-full border-border/60 bg-muted/30 text-foreground hover:bg-muted/45"
+          disabled={isStarting}
+          onClick={handleStartParsing}
+          type="button"
+          variant="outline"
+        >
+          {isStarting ? <LoaderCircle className="animate-spin" /> : <Play />}
+          Начать поиск
+        </Button>
+        <p
+          className={[
+            "mt-2 text-[11px] leading-4",
+            status === "error" ? "text-red-300" : "text-muted-foreground",
+            status === "started" ? "text-cyan" : "",
+          ].join(" ")}
+        >
+          {message}
+        </p>
+      </div>
     </section>
   );
 }
