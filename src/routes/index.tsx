@@ -88,7 +88,7 @@ function Dashboard() {
                       ) : null}
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      Мониторинг  угроз
+                      Мониторинг угроз проанализированные ИИ
                     </h1>
                   </div>
                 </div>

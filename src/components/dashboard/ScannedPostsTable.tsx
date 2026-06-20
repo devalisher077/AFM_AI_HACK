@@ -233,7 +233,7 @@ export function ScannedPostsTableView({
     <div className="glass flex min-h-0 flex-1 flex-col p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-foreground">
-          Недавние просканированные посты
+          Недавно найденные источники
         </h2>
         <button
           type="button"
