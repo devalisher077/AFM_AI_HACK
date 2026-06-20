@@ -128,10 +128,10 @@ export function AuthPanel() {
 
   if (session) {
     return (
-      <div className="glass relative mb-4 overflow-hidden rounded-xl p-3">
+      <div className="glass relative mb-4 overflow-hidden p-3">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-glow-green/60 to-transparent" />
         <div className="mb-3 flex items-center gap-2">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-glow-green/15 ring-1 ring-glow-green/35">
+          <div className="grid h-9 w-9 shrink-0 place-items-center bg-glow-green/15 ring-1 ring-glow-green/35">
             <ShieldCheck
               className="h-4 w-4 text-glow-green"
               strokeWidth={1.8}
@@ -149,7 +149,12 @@ export function AuthPanel() {
           </div>
         </div>
         <div className="grid gap-2">
-          <Button asChild variant="outline" size="sm" className="justify-start">
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="justify-start rounded-none"
+          >
             <Link to="/profile">
               <UserRound className="h-4 w-4" />
               Профиль
@@ -159,7 +164,7 @@ export function AuthPanel() {
             type="button"
             variant="outline"
             size="sm"
-            className="w-full justify-start"
+            className="w-full justify-start rounded-none"
             disabled={isLoading}
             onClick={handleSignOut}
           >
@@ -172,13 +177,13 @@ export function AuthPanel() {
   }
 
   return (
-    <div className="glass relative mb-4 overflow-hidden rounded-xl p-3">
+    <div className="glass relative mb-4 overflow-hidden p-3">
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan/60 to-transparent" />
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <button
             type="button"
-            className="flex w-full items-center gap-2 rounded-md bg-primary px-2.5 py-2 text-left text-primary-foreground shadow transition-colors hover:bg-primary/90"
+            className="flex w-full items-center gap-2 border border-border/40 bg-muted/10 px-2.5 py-2 text-left text-foreground shadow transition-colors hover:border-cyan/35 hover:bg-muted/20"
           >
             <LogIn className="h-4 w-4 shrink-0" />
             <span className="min-w-0 leading-tight">
@@ -190,24 +195,24 @@ export function AuthPanel() {
           </button>
         </DialogTrigger>
 
-        <DialogContent className="glass max-w-[420px] border-border/60 p-5">
+        <DialogContent className="glass max-w-[420px] border-border/60 bg-card/95 p-5 text-foreground sm:rounded-none">
           <DialogHeader>
             <DialogTitle className="text-foreground">
               {mode === "sign-up" ? "Регистрация" : "Вход"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-foreground/75">
               Подключение аккаунта через Supabase Auth
             </DialogDescription>
           </DialogHeader>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted/30 p-1">
+            <div className="grid grid-cols-2 gap-1 border border-border/40 bg-muted/10 p-1">
               <button
                 type="button"
-                className={`rounded-md px-2 py-2 text-[12px] font-medium transition-colors ${
+                className={`px-2 py-2 text-[12px] font-medium transition-colors ${
                   mode === "sign-up"
-                    ? "bg-cyan/15 text-cyan ring-1 ring-cyan/30"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "border border-cyan/35 bg-muted/20 text-foreground"
+                    : "text-foreground/70 hover:bg-muted/20 hover:text-foreground"
                 }`}
                 onClick={() => {
                   setMode("sign-up");
@@ -219,10 +224,10 @@ export function AuthPanel() {
               </button>
               <button
                 type="button"
-                className={`rounded-md px-2 py-2 text-[12px] font-medium transition-colors ${
+                className={`px-2 py-2 text-[12px] font-medium transition-colors ${
                   mode === "sign-in"
-                    ? "bg-cyan/15 text-cyan ring-1 ring-cyan/30"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "border border-cyan/35 bg-muted/20 text-foreground"
+                    : "text-foreground/70 hover:bg-muted/20 hover:text-foreground"
                 }`}
                 onClick={() => {
                   setMode("sign-in");
@@ -241,6 +246,7 @@ export function AuthPanel() {
                 placeholder="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                className="rounded-none bg-muted/10 text-foreground placeholder:text-foreground/45"
                 required
               />
               <Input
@@ -252,23 +258,28 @@ export function AuthPanel() {
                 placeholder="пароль"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                className="rounded-none bg-muted/10 text-foreground placeholder:text-foreground/45"
                 required
               />
             </div>
 
             {!isSupabaseConfigured ? (
-              <p className="rounded-lg border border-orange/30 bg-orange/10 p-2 text-[11px] leading-relaxed text-orange">
+              <p className="border border-orange/30 bg-orange/10 p-2 text-[11px] leading-relaxed text-orange">
                 Нужны ключи Supabase в .env.local.
               </p>
             ) : null}
 
             {message ? (
-              <p className="rounded-lg border border-border/50 bg-muted/20 p-2 text-[11px] leading-relaxed text-muted-foreground">
+              <p className="border border-border/50 bg-muted/20 p-2 text-[11px] leading-relaxed text-foreground/75">
                 {message}
               </p>
             ) : null}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              className="w-full rounded-none bg-muted/20 text-foreground hover:bg-muted/30"
+              disabled={isLoading}
+            >
               {isLoading
                 ? "..."
                 : mode === "sign-up"

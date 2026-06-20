@@ -26,38 +26,30 @@ export interface ThreatCardData {
   title: string;
   metricLabel: string;
   value: string;
-  growth: string;
-  posts: string;
   accent: Accent;
   href?: string;
 }
 
 export const threatCards: ThreatCardData[] = [
   {
-    label: "Кластер угроз",
-    title: "AI Income Bot",
+    label: "Источник",
+    title: "@ai_income_kz",
     metricLabel: "Уровень риска",
     value: "92/100",
-    growth: "+180%",
-    posts: "26 постов",
     accent: "red",
   },
   {
-    label: "Кластер угроз",
-    title: "Betting Signals",
+    label: "Источник",
+    title: "@betting_signals",
     metricLabel: "Уровень риска",
     value: "87/100",
-    growth: "+60%",
-    posts: "39 постов",
     accent: "red",
   },
   {
-    label: "Кластер угроз",
-    title: "Crypto Bonus Scam",
+    label: "Источник",
+    title: "crypto-bonus.kz",
     metricLabel: "Уровень риска",
     value: "81/100",
-    growth: "+130%",
-    posts: "14 постов",
     accent: "green",
   },
 ];
@@ -68,6 +60,7 @@ export type StatusLevel = "New Alert" | "Reviewing" | "Detected" | "Escalated";
 export interface ScannedPost {
   date: string;
   source: string;
+  sourceId?: string;
   threat: string;
   risk: RiskLevel;
   status: StatusLevel;
@@ -90,6 +83,7 @@ export const scannedPosts: ScannedPost[] = [
   {
     date: "16/06/26",
     source: "@ai_income_kz",
+    sourceId: "src-001",
     threat: "AI Income Bot",
     risk: "Critical",
     status: "New Alert",
@@ -97,6 +91,7 @@ export const scannedPosts: ScannedPost[] = [
   {
     date: "16/06/26",
     source: "@betting_signals",
+    sourceId: "src-002",
     threat: "Betting Signals",
     risk: "High",
     status: "Reviewing",
@@ -104,6 +99,7 @@ export const scannedPosts: ScannedPost[] = [
   {
     date: "16/06/26",
     source: "crypto-bonus.kz",
+    sourceId: "src-003",
     threat: "Crypto Bonus Scam",
     risk: "Medium",
     status: "Detected",
@@ -111,6 +107,7 @@ export const scannedPosts: ScannedPost[] = [
   {
     date: "16/06/26",
     source: "@quick_profit",
+    sourceId: "src-004",
     threat: "Fast Profit Matrix",
     risk: "Critical",
     status: "Escalated",

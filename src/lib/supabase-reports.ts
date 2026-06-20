@@ -1,4 +1,11 @@
-import { Brain, FileText, Globe2, MessageCircle, Radar, ShieldAlert } from "lucide-react";
+import {
+  Brain,
+  FileText,
+  Globe2,
+  MessageCircle,
+  Radar,
+  ShieldAlert,
+} from "lucide-react";
 import {
   type RiskLevel,
   type SourcePlatform,
@@ -33,15 +40,19 @@ type AiAnalysisRow = {
 
 export type ReportsLiveData = {
   reports: ThreatReport[];
+  totalScanned: number;
   errorMessage: string | null;
 };
 
 export const emptyReportsData: ReportsLiveData = {
   reports: [],
+  totalScanned: 0,
   errorMessage: null,
 };
 
-export async function fetchReportsLiveData(): Promise<ReportsLiveData> {
+export async function fetchReportsLiveData(
+  days?: number,
+): Promise<ReportsLiveData> {
   const supabase = getSupabaseClient();
 
   if (!supabase) {
@@ -75,7 +86,10 @@ export async function fetchReportsLiveData(): Promise<ReportsLiveData> {
     };
   }
 
-  const mediaItems = (mediaResult.data ?? []) as MediaItemRow[];
+  const mediaItems = filterItemsByPeriod(
+    (mediaResult.data ?? []) as MediaItemRow[],
+    days,
+  );
   const analyses = analysisResult.error
     ? []
     : ((analysisResult.data ?? []) as AiAnalysisRow[]);
@@ -96,6 +110,7 @@ export async function fetchReportsLiveData(): Promise<ReportsLiveData> {
 
   return {
     reports,
+    totalScanned: mediaItems.length,
     errorMessage: analysisResult.error?.message ?? null,
   };
 }
@@ -104,22 +119,35 @@ function buildReports(
   mediaItems: MediaItemRow[],
   analysisByHash: Map<string, AiAnalysisRow>,
 ) {
-  const groups = new Map<string, MediaItemRow[]>();
-
-  for (const item of mediaItems) {
-    const analysis = item.url_hash ? analysisByHash.get(item.url_hash) : undefined;
-    const threat = cleanLabel(
-      analysis?.threat_type ?? item.threat_type ?? "Без классификации",
-    );
-    const items = groups.get(threat) ?? [];
-
-    items.push(item);
-    groups.set(threat, items);
+  if (mediaItems.length === 0) {
+    return [];
   }
 
-  return Array.from(groups.entries())
-    .map(([threat, items], index) => reportFromGroup(threat, items, analysisByHash, index))
-    .sort((a, b) => b.statistics.totalPosts - a.statistics.totalPosts);
+  return [
+    reportFromGroup(
+      "Сводный аналитический отчет",
+      mediaItems,
+      analysisByHash,
+      0,
+      true,
+    ),
+  ];
+}
+
+function filterItemsByPeriod(items: MediaItemRow[], days?: number) {
+  if (!days) {
+    return items;
+  }
+
+  const start = Date.now() - days * 24 * 60 * 60 * 1000;
+
+  return items.filter((item) => {
+    const value = item.published_at ?? item.created_at;
+    if (!value) return false;
+
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime()) && date.getTime() >= start;
+  });
 }
 
 function reportFromGroup(
@@ -127,12 +155,17 @@ function reportFromGroup(
   items: MediaItemRow[],
   analysisByHash: Map<string, AiAnalysisRow>,
   index: number,
+  isUnified = false,
 ): ThreatReport {
   const analyses = items
-    .map((item) => (item.url_hash ? analysisByHash.get(item.url_hash) : undefined))
+    .map((item) =>
+      item.url_hash ? analysisByHash.get(item.url_hash) : undefined,
+    )
     .filter((analysis): analysis is AiAnalysisRow => Boolean(analysis));
   const riskScores = items.map((item) => {
-    const analysis = item.url_hash ? analysisByHash.get(item.url_hash) : undefined;
+    const analysis = item.url_hash
+      ? analysisByHash.get(item.url_hash)
+      : undefined;
     return clampScore(analysis?.risk_score ?? item.risk_score ?? 0);
   });
   const averageRisk = average(riskScores);
@@ -150,46 +183,69 @@ function reportFromGroup(
   const accounts = buildAccounts(items, riskScores);
   const recentPosts = items.slice(0, 8).map((item, itemIndex) => ({
     id: item.url_hash ?? `${slug(threat)}-${itemIndex}`,
-    account: cleanLabel(item.channel_name ?? hostFromUrl(item.url) ?? "Источник"),
+    account: cleanLabel(
+      item.channel_name ?? hostFromUrl(item.url) ?? "Источник",
+    ),
     date: formatDateTime(item.published_at ?? item.created_at),
     platform: platformFromValue(item.platform ?? item.source_type),
-    excerpt: cleanLabel(item.snippet ?? item.title ?? "Описание публикации отсутствует."),
+    excerpt: cleanLabel(
+      item.snippet ?? item.title ?? "Описание публикации отсутствует.",
+    ),
     engagement: "зафиксировано системой мониторинга",
   }));
-  const firstDate = oldestDate(items.map((item) => item.published_at ?? item.created_at));
+  const firstDate = oldestDate(
+    items.map((item) => item.published_at ?? item.created_at),
+  );
 
   return {
     id: slug(threat),
     threat,
-    description: `${items.length} ${pluralRu(items.length, "сигнал", "сигнала", "сигналов")} по кластеру. Средний риск: ${averageRisk}/100.`,
+    description: isUnified
+      ? `${items.length} ${pluralRu(items.length, "просканированная публикация", "просканированные публикации", "просканированных публикаций")} за выбранный период. Отчет объединяет все найденные направления мониторинга.`
+      : `${items.length} ${pluralRu(items.length, "просканированная публикация", "просканированные публикации", "просканированных публикаций")} по кластеру.`,
     detailedDescription:
       analyses.find((analysis) => analysis.reasoning_short)?.reasoning_short ??
-      `Кластер сформирован из публикаций и страниц, где совпадают признаки риска, источники и тип угрозы "${threat}".`,
+      (isUnified
+        ? "Сводный отчет сформирован из публикаций и страниц, найденных системой мониторинга за выбранный период. Материалы сопоставлены по источникам, повторяющимся признакам, активности аккаунтов и географии."
+        : `Кластер сформирован из публикаций и страниц, где совпадают признаки, источники и тип угрозы "${threat}".`),
     riskLevel,
     icon: iconForThreat(index),
     accent: accentForIndex(index),
     aiSummary: {
       confidence: `${confidence || 0}%`,
       modelVerdict:
-        analyses.find((analysis) => analysis.reasoning_short)?.reasoning_short ??
-        `AI выделил кластер "${threat}" для приоритетной проверки.`,
+        analyses.find((analysis) => analysis.reasoning_short)
+          ?.reasoning_short ??
+        (isUnified
+          ? "AI обобщил найденные материалы в единый отчет для приоритетной проверки."
+          : `AI выделил кластер "${threat}" для приоритетной проверки.`),
       nextAction:
-        analyses.find((analysis) => analysis.recommended_action)?.recommended_action ??
+        analyses.find((analysis) => analysis.recommended_action)
+          ?.recommended_action ??
         "Проверить источники, сохранить доказательства и обновить правила мониторинга.",
     },
     aiFindings:
       aiFindings.length > 0
         ? aiFindings
-        : ["Повторяются риск-сигналы, связанные с этим типом угрозы."],
+        : ["Повторяются признаки, связанные с этим типом угрозы."],
     sourceBreakdown,
     statisticHighlights: [
-      { label: "Средний риск", value: `${averageRisk}/100`, delta: "live" },
-      { label: "Сигналы", value: String(items.length), delta: "из базы" },
-      { label: "Источники", value: String(sourceBreakdown.length), delta: "активно" },
+      {
+        label: "Просканировано",
+        value: String(items.length),
+        delta: "за период",
+      },
+      { label: "Сигналы", value: String(aiFindings.length), delta: "из базы" },
+      {
+        label: "Источники",
+        value: String(sourceBreakdown.length),
+        delta: "активно",
+      },
     ],
     responsePlan: [
-      analyses.find((analysis) => analysis.recommended_action)?.recommended_action ??
-        "Провести ручную верификацию публикаций с максимальным риском.",
+      analyses.find((analysis) => analysis.recommended_action)
+        ?.recommended_action ??
+        "Провести ручную верификацию публикаций с наибольшим приоритетом.",
       "Сохранить ссылки, тексты и признаки для доказательной базы.",
       "Сопоставить аккаунты и домены с похожими кластерами.",
     ],
@@ -236,13 +292,13 @@ function reportFromGroup(
         icon: Radar,
       },
       {
-        label: "Триггер риска",
-        value: `${averageRisk}/100 по AI и rule-based сигналам`,
+        label: "Ключевой триггер",
+        value: `${aiFindings[0] ?? threat}`,
         icon: ShieldAlert,
       },
       {
         label: "Ключевой индикатор",
-        value: aiFindings[0] ?? "Повторяющиеся признаки риска",
+        value: aiFindings[0] ?? "Повторяющиеся признаки",
         icon: FileText,
       },
     ],
@@ -255,7 +311,9 @@ function buildSourceBreakdown(items: MediaItemRow[]) {
   const counts = new Map<string, { platform: SourcePlatform; count: number }>();
 
   for (const item of items) {
-    const source = cleanLabel(item.channel_name ?? hostFromUrl(item.url) ?? "Источник");
+    const source = cleanLabel(
+      item.channel_name ?? hostFromUrl(item.url) ?? "Источник",
+    );
     const current = counts.get(source) ?? {
       platform: platformFromValue(item.platform ?? item.source_type),
       count: 0,
@@ -290,7 +348,9 @@ function buildAccounts(items: MediaItemRow[], riskScores: number[]) {
   >();
 
   items.forEach((item, index) => {
-    const account = cleanLabel(item.channel_name ?? hostFromUrl(item.url) ?? "Источник");
+    const account = cleanLabel(
+      item.channel_name ?? hostFromUrl(item.url) ?? "Источник",
+    );
     const current = accounts.get(account) ?? {
       account,
       platform: platformFromValue(item.platform ?? item.source_type),
@@ -373,7 +433,9 @@ function stringArray(value: unknown): string[] {
 }
 
 function unique(values: string[]) {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  );
 }
 
 function average(values: number[]) {
@@ -381,7 +443,9 @@ function average(values: number[]) {
     return 0;
   }
 
-  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  return Math.round(
+    values.reduce((sum, value) => sum + value, 0) / values.length,
+  );
 }
 
 function clampScore(value: number) {
@@ -417,7 +481,9 @@ function formatShortDate(value: string | null | undefined) {
 function oldestDate(values: Array<string | null | undefined>) {
   const dates = values
     .map((value) => (value ? new Date(value) : null))
-    .filter((date): date is Date => Boolean(date) && !Number.isNaN(date.getTime()))
+    .filter(
+      (date): date is Date => Boolean(date) && !Number.isNaN(date.getTime()),
+    )
     .sort((a, b) => a.getTime() - b.getTime());
 
   if (!dates[0]) {

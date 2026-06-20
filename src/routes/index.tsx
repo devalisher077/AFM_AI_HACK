@@ -1,17 +1,24 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Header } from "@/components/dashboard/Header";
 import { ThreatCard } from "@/components/dashboard/ThreatCard";
 import { ScannedPostsTableView } from "@/components/dashboard/ScannedPostsTable";
 import { ConnectorStatusView } from "@/components/dashboard/ConnectorStatus";
 import { MonitoringOverview } from "@/components/dashboard/MonitoringOverview";
-import { SourceDistribution } from "@/components/dashboard/SourceDistribution";
 import {
+  type DashboardPeriod,
   emptyDashboardData,
   fetchDashboardLiveData,
 } from "@/lib/supabase-dashboard";
+
+const threatClusterAutoScrollStep = 0.35;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,32 +44,43 @@ export const Route = createFileRoute("/")({
 });
 
 function Dashboard() {
+  const [period, setPeriod] = useState<DashboardPeriod>("6h");
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["dashboard-live-data"],
-    queryFn: fetchDashboardLiveData,
+    queryKey: ["dashboard-live-data", period],
+    queryFn: () => fetchDashboardLiveData(period),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
   const dashboardData = data ?? emptyDashboardData;
+  const highRiskCount = dashboardData.scannedPosts.filter(
+    (post) => post.risk === "Critical" || post.risk === "High",
+  ).length;
+  const statusLine = isLoading
+    ? "Загрузка данных из Supabase..."
+    : [
+        dashboardData.updatedLabel,
+        `просканировано ${dashboardData.totalScanned}`,
+        highRiskCount > 0
+          ? `высокий риск ${highRiskCount}`
+          : "высокий риск не найден",
+      ].join(" · ");
 
   return (
-    <div className="min-h-screen p-4 lg:p-5">
-      <div className="mx-auto flex max-w-[1400px] gap-5">
+    <div className="min-h-screen p-3 md:p-4 lg:p-5">
+      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] w-full max-w-none flex-col gap-4 md:min-h-[calc(100vh-2rem)] lg:h-[calc(100vh-2.5rem)] lg:min-h-0 lg:flex-row lg:gap-5">
         <Sidebar />
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Header />
 
-          <div className="flex min-w-0 flex-1 gap-5">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-5 xl:flex-row">
             {/* Main column */}
-            <main className="flex min-w-0 flex-1 flex-col gap-5">
+            <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-5">
               <section>
                 <div className="mb-3 flex items-end justify-between gap-3">
                   <div>
                     <div className="mb-1 flex items-center gap-2 text-[12px] text-muted-foreground">
-                      {isLoading
-                        ? "Загрузка данных из Supabase..."
-                        : dashboardData.updatedLabel}
+                      {statusLine}
                       {isFetching && !isLoading ? (
                         <span className="rounded-md bg-cyan/10 px-1.5 py-0.5 text-[10px] text-cyan ring-1 ring-cyan/25">
                           sync
@@ -70,7 +88,7 @@ function Dashboard() {
                       ) : null}
                     </div>
                     <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                      Статистика угроз
+                      Мониторинг  угроз
                     </h1>
                   </div>
                 </div>
@@ -100,15 +118,17 @@ function Dashboard() {
             </main>
 
             {/* Right column */}
-            <aside className="flex w-[340px] shrink-0 flex-col gap-4">
+            <aside className="glass flex w-full shrink-0 flex-col border border-border/60 bg-card/35 p-4 xl:h-full xl:w-[320px] 2xl:w-[340px]">
               <MonitoringOverview
+                period={period}
                 totalScanned={dashboardData.totalScanned}
-                trendLabel={dashboardData.trendLabel}
+                onPeriodChange={setPeriod}
               />
               {dashboardData.connectorHealth.length > 0 ? (
-                <ConnectorStatusView connectors={dashboardData.connectorHealth} />
+                <ConnectorStatusView
+                  connectors={dashboardData.connectorHealth}
+                />
               ) : null}
-              <SourceDistribution data={dashboardData.sourceDistribution} />
             </aside>
           </div>
         </div>
@@ -138,7 +158,9 @@ function ThreatClusterMarquee({
   const rafRef = useRef<number | null>(null);
   const repeatCount = cards.length > 0 ? 4 : 0;
   const trackCards =
-    repeatCount > 0 ? Array.from({ length: repeatCount }, () => cards).flat() : [];
+    repeatCount > 0
+      ? Array.from({ length: repeatCount }, () => cards).flat()
+      : [];
 
   function pauseAutoScroll() {
     pausedRef.current = true;
@@ -163,8 +185,8 @@ function ThreatClusterMarquee({
     activePointerIdRef.current = event.pointerId;
     pendingHrefRef.current =
       event.target instanceof Element
-        ? event.target.closest<HTMLAnchorElement>("a[data-threat-card-link]")?.href ??
-          null
+        ? (event.target.closest<HTMLAnchorElement>("a[data-threat-card-link]")
+            ?.href ?? null)
         : null;
     didNavigateRef.current = false;
 
@@ -267,7 +289,7 @@ function ThreatClusterMarquee({
       if (!pausedRef.current) {
         const loopWidth = loopWidthRef.current;
         if (loopWidth > 0) {
-          positionRef.current += 1.2;
+          positionRef.current += threatClusterAutoScrollStep;
 
           if (positionRef.current >= loopWidth * 2) {
             positionRef.current -= loopWidth;
@@ -295,7 +317,7 @@ function ThreatClusterMarquee({
         resumeTimerRef.current = null;
       }
     };
-  }, [cards.length]);
+  }, [cards.length, repeatCount]);
 
   return (
     <div className="relative rounded-2xl">

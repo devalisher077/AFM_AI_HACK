@@ -45,6 +45,8 @@ type AiAnalysisRow = {
   analyzed_at: string | null;
 };
 
+export type DashboardPeriod = "6h" | "12h" | "24h" | "7d" | "30d";
+
 export type DashboardLiveData = {
   updatedLabel: string;
   totalScanned: string;
@@ -57,7 +59,9 @@ export type DashboardLiveData = {
   hasData: boolean;
 };
 
-export async function fetchDashboardLiveData(): Promise<DashboardLiveData> {
+export async function fetchDashboardLiveData(
+  period: DashboardPeriod = "6h",
+): Promise<DashboardLiveData> {
   const supabase = getSupabaseClient();
 
   if (!supabase) {
@@ -67,39 +71,76 @@ export async function fetchDashboardLiveData(): Promise<DashboardLiveData> {
     };
   }
 
-  const [runResult, mediaResult, mediaCountResult, analysisResult] = await Promise.all([
-    supabase
-      .from("scan_runs")
-      .select(
-        "run_id, generated_at, total_candidates, high_risk_items, kz_high_risk_items, review_items, platform_counts, summary, updated_at",
-      )
-      .order("generated_at", { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("media_items")
-      .select(
-        "url_hash, url, platform, source_type, title, snippet, published_at, channel_name, risk_score, threat_type, status, updated_at, created_at",
-      )
-      .order("created_at", { ascending: false, nullsFirst: false })
-      .limit(100),
-    supabase
-      .from("media_items")
-      .select("url_hash", { count: "exact", head: true }),
-    supabase
-      .from("ai_analyses")
-      .select("url_hash, risk_score, threat_type, confidence, analyzed_at")
-      .order("analyzed_at", { ascending: false, nullsFirst: false })
-      .limit(120),
+  const cutoffIso = periodToCutoffIso(period);
+  const scanRunQuery = supabase
+    .from("scan_runs")
+    .select(
+      "run_id, generated_at, total_candidates, high_risk_items, kz_high_risk_items, review_items, platform_counts, summary, updated_at",
+    )
+    .gte("generated_at", cutoffIso)
+    .order("generated_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  const mediaQuery = supabase
+    .from("media_items")
+    .select(
+      "url_hash, url, platform, source_type, title, snippet, published_at, channel_name, risk_score, threat_type, status, updated_at, created_at",
+    )
+    .gte("created_at", cutoffIso)
+    .order("created_at", { ascending: false, nullsFirst: false })
+    .limit(100);
+  const mediaCountQuery = supabase
+    .from("media_items")
+    .select("url_hash", { count: "exact", head: true })
+    .gte("created_at", cutoffIso);
+  const scannedMediaQuery = supabase
+    .from("media_items")
+    .select(
+      "url_hash, url, platform, source_type, title, snippet, published_at, channel_name, risk_score, threat_type, status, updated_at, created_at",
+    )
+    .order("created_at", { ascending: false, nullsFirst: false });
+  const analysisQuery = supabase
+    .from("ai_analyses")
+    .select("url_hash, risk_score, threat_type, confidence, analyzed_at")
+    .gte("analyzed_at", cutoffIso)
+    .order("analyzed_at", { ascending: false, nullsFirst: false });
+  const scannedAnalysisQuery = supabase
+    .from("ai_analyses")
+    .select("url_hash, risk_score, threat_type, confidence, analyzed_at")
+    .order("analyzed_at", { ascending: false, nullsFirst: false });
+
+  const [
+    runResult,
+    mediaResult,
+    mediaCountResult,
+    scannedMediaResult,
+    analysisResult,
+    scannedAnalysisResult,
+  ] = await Promise.all([
+    scanRunQuery,
+    mediaQuery,
+    mediaCountQuery,
+    scannedMediaQuery,
+    analysisQuery,
+    scannedAnalysisQuery,
   ]);
 
-  const latestRun = runResult.error ? null : (runResult.data as ScanRunRow | null);
-  const mediaItems = runResult.error || mediaResult.error
-    ? ((mediaResult.data ?? []) as MediaItemRow[])
-    : ((mediaResult.data ?? []) as MediaItemRow[]);
+  const latestRun = runResult.error
+    ? null
+    : (runResult.data as ScanRunRow | null);
+  const mediaItems =
+    runResult.error || mediaResult.error
+      ? ((mediaResult.data ?? []) as MediaItemRow[])
+      : ((mediaResult.data ?? []) as MediaItemRow[]);
   const analyses = analysisResult.error
     ? []
     : ((analysisResult.data ?? []) as AiAnalysisRow[]);
+  const scannedMediaItems = scannedMediaResult.error
+    ? mediaItems
+    : ((scannedMediaResult.data ?? []) as MediaItemRow[]);
+  const scannedAnalyses = scannedAnalysisResult.error
+    ? analyses
+    : ((scannedAnalysisResult.data ?? []) as AiAnalysisRow[]);
   const totalMediaItems = mediaCountResult.error
     ? mediaItems.length
     : (mediaCountResult.count ?? mediaItems.length);
@@ -107,31 +148,50 @@ export async function fetchDashboardLiveData(): Promise<DashboardLiveData> {
     latestRun?.total_candidates ?? 0,
     totalMediaItems,
   );
-  const errors = [runResult.error, mediaResult.error, mediaCountResult.error, analysisResult.error]
+  const errors = [
+    runResult.error,
+    mediaResult.error,
+    mediaCountResult.error,
+    scannedMediaResult.error,
+    analysisResult.error,
+    scannedAnalysisResult.error,
+  ]
     .filter(Boolean)
     .map((error) => error?.message)
     .filter(Boolean);
-  const hasData = Boolean(latestRun || totalMediaItems > 0 || analyses.length > 0);
+  const hasData = Boolean(
+    latestRun || totalMediaItems > 0 || analyses.length > 0,
+  );
 
   const analysisByHash = new Map(
-    analyses
+    scannedAnalyses
       .filter((analysis) => analysis.url_hash)
       .map((analysis) => [analysis.url_hash as string, analysis]),
+  );
+  const mediaByHash = new Map(
+    mediaItems
+      .filter((item) => item.url_hash)
+      .map((item) => [item.url_hash as string, item]),
   );
 
   return {
     updatedLabel: formatUpdatedLabel(
-      latestRun?.generated_at ?? latestRun?.updated_at ?? mediaItems[0]?.updated_at,
+      latestRun?.generated_at ??
+        latestRun?.updated_at ??
+        mediaItems[0]?.updated_at,
     ),
     totalScanned: formatNumber(totalScannedCount),
     trendLabel: formatTrend(latestRun),
-    threatCards: buildThreatCards(analyses),
-    scannedPosts: buildScannedPosts(mediaItems, analysisByHash),
+    threatCards: buildThreatCards(analyses, mediaByHash),
+    scannedPosts: buildScannedPosts(scannedMediaItems, analysisByHash),
     sourceDistribution: buildSourceDistribution(
       latestRun?.platform_counts,
       mediaItems,
     ),
-    connectorHealth: buildConnectorHealth(latestRun?.platform_counts, mediaItems),
+    connectorHealth: buildConnectorHealth(
+      latestRun?.platform_counts,
+      mediaItems,
+    ),
     errorMessage: errors.length > 0 ? errors.join(" · ") : null,
     hasData,
   };
@@ -149,7 +209,24 @@ export const emptyDashboardData: DashboardLiveData = {
   hasData: false,
 };
 
-function buildThreatCards(analyses: AiAnalysisRow[]): ThreatCardData[] {
+function periodToCutoffIso(period: DashboardPeriod) {
+  const hoursByPeriod: Record<DashboardPeriod, number> = {
+    "6h": 6,
+    "12h": 12,
+    "24h": 24,
+    "7d": 24 * 7,
+    "30d": 24 * 30,
+  };
+
+  return new Date(
+    Date.now() - hoursByPeriod[period] * 60 * 60 * 1000,
+  ).toISOString();
+}
+
+function buildThreatCards(
+  analyses: AiAnalysisRow[],
+  mediaByHash: Map<string, MediaItemRow>,
+): ThreatCardData[] {
   const groups = new Map<
     string,
     {
@@ -161,9 +238,12 @@ function buildThreatCards(analyses: AiAnalysisRow[]): ThreatCardData[] {
   >();
 
   for (const analysis of analyses) {
-    const threat = cleanLabel(analysis.threat_type ?? "Не классифицировано");
+    const item = analysis.url_hash
+      ? mediaByHash.get(analysis.url_hash)
+      : undefined;
+    const source = sourceTitleForThreatCard(item, analysis);
     const risk = clampScore(analysis.risk_score ?? 0);
-    const current = groups.get(threat) ?? {
+    const current = groups.get(source) ?? {
       count: 0,
       totalRisk: 0,
       maxRisk: 0,
@@ -176,7 +256,7 @@ function buildThreatCards(analyses: AiAnalysisRow[]): ThreatCardData[] {
       current.maxRisk = risk;
       current.focusHash = analysis.url_hash;
     }
-    groups.set(threat, current);
+    groups.set(source, current);
   }
 
   const cards = Array.from(groups.entries())
@@ -184,40 +264,79 @@ function buildThreatCards(analyses: AiAnalysisRow[]): ThreatCardData[] {
       const averageRisk = Math.round(group.totalRisk / group.count);
 
       return {
-        label: "Кластер угроз",
+        label: "Источник",
         title,
         metricLabel: "Уровень риска",
         value: `${averageRisk}/100`,
-        growth: group.maxRisk >= 80 ? "требует проверки" : "под наблюдением",
-        posts: `${group.count} ${pluralRu(group.count, "пост", "поста", "постов")}`,
         accent: group.maxRisk >= 75 ? "red" : "green",
         href: group.focusHash
           ? `/ai-analysis?focus=${encodeURIComponent(group.focusHash)}`
           : "/ai-analysis",
       } satisfies ThreatCardData;
     })
-    .sort((a, b) => Number.parseInt(b.value) - Number.parseInt(a.value))
-    .slice(0, 12);
+    .sort((a, b) => Number.parseInt(b.value) - Number.parseInt(a.value));
 
   return cards;
+}
+
+function sourceTitleForThreatCard(
+  item: MediaItemRow | undefined,
+  analysis: AiAnalysisRow,
+) {
+  if (!item) {
+    return localizeThreatLabel(analysis.threat_type ?? "Источник");
+  }
+
+  const platform = `${item.platform ?? item.source_type ?? ""}`.toLowerCase();
+  const youtubeTitle = platform.includes("youtube") ? item.title : null;
+
+  return localizeThreatLabel(
+    youtubeTitle ??
+      item.channel_name ??
+      item.title ??
+      hostFromUrl(item.url) ??
+      item.platform ??
+      item.source_type ??
+      analysis.threat_type ??
+      "Источник",
+  );
 }
 
 function buildScannedPosts(
   mediaItems: MediaItemRow[],
   analysisByHash: Map<string, AiAnalysisRow>,
 ): ScannedPost[] {
-  const posts = [...mediaItems].sort(compareMediaItemsByScanTime).map((item) => {
-    const analysis = item.url_hash ? analysisByHash.get(item.url_hash) : undefined;
-    const riskScore = clampScore(analysis?.risk_score ?? item.risk_score ?? 0);
+  const posts = [...mediaItems]
+    .sort(compareMediaItemsByScanTime)
+    .map((item) => {
+      const analysis = item.url_hash
+        ? analysisByHash.get(item.url_hash)
+        : undefined;
+      const riskScore = clampScore(
+        analysis?.risk_score ?? item.risk_score ?? 0,
+      );
 
-    return {
-      date: formatShortDate(item.created_at ?? item.updated_at ?? item.published_at),
-      source: cleanLabel(item.channel_name ?? hostFromUrl(item.url) ?? item.platform ?? "Источник"),
-      threat: cleanLabel(analysis?.threat_type ?? item.threat_type ?? item.title ?? "Без классификации"),
-      risk: riskLevelFromScore(riskScore),
-      status: statusFromValue(item.status, riskScore),
-    } satisfies ScannedPost;
-  });
+      return {
+        date: formatShortDate(
+          item.created_at ?? item.updated_at ?? item.published_at,
+        ),
+        source: cleanLabel(
+          item.channel_name ??
+            hostFromUrl(item.url) ??
+            item.platform ??
+            "Источник",
+        ),
+        sourceId: item.url_hash ?? undefined,
+        threat: localizeThreatLabel(
+          analysis?.threat_type ??
+            item.threat_type ??
+            item.title ??
+            "Без классификации",
+        ),
+        risk: riskLevelFromScore(riskScore),
+        status: statusFromValue(item.status, riskScore),
+      } satisfies ScannedPost;
+    });
 
   return posts;
 }
@@ -227,7 +346,9 @@ function compareMediaItemsByScanTime(a: MediaItemRow, b: MediaItemRow) {
 }
 
 function mediaItemScanTime(item: MediaItemRow) {
-  return timestampFromValue(item.created_at ?? item.updated_at ?? item.published_at);
+  return timestampFromValue(
+    item.created_at ?? item.updated_at ?? item.published_at,
+  );
 }
 
 function buildSourceDistribution(
@@ -238,7 +359,9 @@ function buildSourceDistribution(
 
   if (Object.keys(counts).length === 0) {
     for (const item of mediaItems) {
-      const platform = cleanLabel(item.platform ?? item.source_type ?? "Другое");
+      const platform = cleanLabel(
+        item.platform ?? item.source_type ?? "Другое",
+      );
       counts[platform] = (counts[platform] ?? 0) + 1;
     }
   }
@@ -273,12 +396,15 @@ function buildConnectorHealth(
   const connectors = Object.entries(counts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 4)
-    .map(([name, count]) => ({
-      name: platformLabel(name),
-      status: "active",
-      detail: `${count} ${pluralRu(count, "сигнал", "сигнала", "сигналов")}`,
-      latency: "live",
-    }) satisfies ConnectorHealth);
+    .map(
+      ([name, count]) =>
+        ({
+          name: platformLabel(name),
+          status: "active",
+          detail: `${count} ${pluralRu(count, "сигнал", "сигнала", "сигналов")}`,
+          latency: "live",
+        }) satisfies ConnectorHealth,
+    );
 
   return connectors;
 }
@@ -319,7 +445,8 @@ function statusFromValue(value: string | null, score: number): StatusLevel {
 }
 
 function formatTrend(run: ScanRunRow | null | undefined) {
-  const highRisk = run?.high_risk_items ?? run?.kz_high_risk_items ?? run?.review_items;
+  const highRisk =
+    run?.high_risk_items ?? run?.kz_high_risk_items ?? run?.review_items;
 
   if (typeof highRisk === "number" && highRisk > 0) {
     return `${highRisk} high risk`;
@@ -394,6 +521,50 @@ function cleanLabel(value: string) {
   return value.trim() || "Не указано";
 }
 
+function localizeThreatLabel(value: string) {
+  const label = cleanLabel(value);
+  const normalized = label
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const exactTranslations: Record<string, string> = {
+    "possible illegal casino": "Возможное нелегальное казино",
+    "illegal casino": "Нелегальное казино",
+    "online casino": "Онлайн-казино",
+    "possible scam": "Возможное мошенничество",
+    scam: "Мошенничество",
+    phishing: "Фишинг",
+    "crypto scam": "Криптомошенничество",
+    "betting scam": "Мошеннические ставки",
+    "financial scam": "Финансовое мошенничество",
+    "investment scam": "Инвестиционное мошенничество",
+    gambling: "Азартные игры",
+    betting: "Ставки",
+  };
+
+  if (exactTranslations[normalized]) {
+    return exactTranslations[normalized];
+  }
+
+  if (normalized.includes("illegal") && normalized.includes("casino")) {
+    return "Возможное нелегальное казино";
+  }
+  if (normalized.includes("casino")) return "Онлайн-казино";
+  if (normalized.includes("betting") || normalized.includes("bookmaker")) {
+    return "Ставки и букмекерские схемы";
+  }
+  if (normalized.includes("crypto")) return "Криптовалютная схема";
+  if (normalized.includes("phishing")) return "Фишинг";
+  if (normalized.includes("investment")) return "Инвестиционная схема";
+  if (normalized.includes("scam") || normalized.includes("fraud")) {
+    return "Мошенническая схема";
+  }
+
+  return label;
+}
+
 function hostFromUrl(value: string | null) {
   if (!value) {
     return null;
@@ -413,7 +584,8 @@ function platformLabel(value: string) {
   if (normalized.includes("telegram")) return "Telegram";
   if (normalized.includes("youtube")) return "YouTube";
   if (normalized.includes("instagram")) return "Instagram";
-  if (normalized.includes("google") || normalized.includes("web")) return "Сайты";
+  if (normalized.includes("google") || normalized.includes("web"))
+    return "Сайты";
   if (normalized.includes("tiktok")) return "TikTok";
 
   return cleanLabel(value);

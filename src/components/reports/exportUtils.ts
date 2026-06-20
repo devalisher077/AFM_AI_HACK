@@ -1,20 +1,20 @@
-import { ThreatReport, riskLabels } from "@/lib/dashboard-data";
+import { ThreatReport } from "@/lib/dashboard-data";
 
 export function downloadReportPDF(report: ThreatReport) {
   // Create HTML content for PDF/Print
   const html = generateReportHTML(report);
-  
+
   // Create blob and download as HTML file (can be printed/converted to PDF from browser)
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = `Report_${report.threat.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.html`;
-  
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  
+
   // Give user time to download
   setTimeout(() => {
     URL.revokeObjectURL(url);
@@ -24,20 +24,20 @@ export function downloadReportPDF(report: ThreatReport) {
 export function downloadReportWord(report: ThreatReport) {
   // Generate Word document content (as HTML table format)
   const html = generateReportHTML(report);
-  
+
   // Create blob with proper MIME type for Word
   const blob = new Blob([html], { type: "application/msword" });
-  
+
   // Create download link
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
   link.download = `Report_${report.threat.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.doc`;
-  
+
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  
+
   // Give user time to download
   setTimeout(() => {
     URL.revokeObjectURL(url);
@@ -129,37 +129,6 @@ function generateReportHTML(report: ThreatReport): string {
         tr:nth-child(even) {
           background-color: #f9f9f9;
         }
-        .risk-critical {
-          color: #dc2626;
-          font-weight: bold;
-        }
-        .risk-high {
-          color: #ea580c;
-          font-weight: bold;
-        }
-        .risk-medium {
-          color: #eab308;
-          font-weight: bold;
-        }
-        .badge {
-          display: inline-block;
-          padding: 4px 8px;
-          border-radius: 4px;
-          font-size: 12px;
-          font-weight: bold;
-        }
-        .badge-critical {
-          background-color: #fecaca;
-          color: #dc2626;
-        }
-        .badge-high {
-          background-color: #fed7aa;
-          color: #ea580c;
-        }
-        .badge-medium {
-          background-color: #fef08a;
-          color: #ca8a04;
-        }
         .section {
           margin: 20px 0;
           padding: 15px;
@@ -199,14 +168,14 @@ function generateReportHTML(report: ThreatReport): string {
       <div class="header">
         <h1>${report.threat}</h1>
         <p>${report.description}</p>
-        <p><strong>Уровень риска:</strong> <span class="badge badge-${report.riskLevel.toLowerCase()}">${riskLabels[report.riskLevel]}</span></p>
+        <p><strong>Просканировано:</strong> ${report.statistics.totalPosts}</p>
         <p><strong>Дата отчета:</strong> ${date}</p>
       </div>
 
-      <h2>📊 Основная статистика</h2>
+      <h2>Основная статистика</h2>
       <div class="stats">
         <div class="stat-box">
-          <div class="stat-label">Всего постов</div>
+          <div class="stat-label">Просканировано</div>
           <div class="stat-value">${report.statistics.totalPosts}</div>
         </div>
         <div class="stat-box">
@@ -223,7 +192,7 @@ function generateReportHTML(report: ThreatReport): string {
         </div>
       </div>
 
-      <h2>🏙️ Посты по городам</h2>
+      <h2>Посты по городам</h2>
       <table>
         <thead>
           <tr>
@@ -234,18 +203,22 @@ function generateReportHTML(report: ThreatReport): string {
           </tr>
         </thead>
         <tbody>
-          ${report.topCities.map(city => `
+          ${report.topCities
+            .map(
+              (city) => `
             <tr>
               <td>${city.city}</td>
               <td>${city.posts}</td>
               <td>${city.accounts}</td>
               <td>${city.firstDetected}</td>
             </tr>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
 
-      <h2>📱 Топ аккаунтов</h2>
+      <h2>Топ аккаунтов</h2>
       <table>
         <thead>
           <tr>
@@ -253,26 +226,30 @@ function generateReportHTML(report: ThreatReport): string {
             <th>Платформа</th>
             <th>Подписчики</th>
             <th>Постов</th>
-            <th>Риск</th>
           </tr>
         </thead>
         <tbody>
-          ${report.topAccounts.map(acc => `
+          ${report.topAccounts
+            .map(
+              (acc) => `
             <tr>
               <td>${acc.name}</td>
               <td>${acc.platform}</td>
               <td>${acc.subscribers}</td>
               <td>${acc.posts}</td>
-              <td><span class="badge badge-critical">${acc.riskScore}</span></td>
             </tr>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </tbody>
       </table>
 
       <div class="page-break"></div>
 
-      <h2>👤 Детальный анализ аккаунтов</h2>
-      ${report.accountAnalysis.map((account, idx) => `
+      <h2>Детальный анализ аккаунтов</h2>
+      ${report.accountAnalysis
+        .map(
+          (account, idx) => `
         <div class="section">
           <h3>${idx + 1}. ${account.account}</h3>
           <div class="detail-item">
@@ -296,24 +273,32 @@ function generateReportHTML(report: ThreatReport): string {
             <div class="detail-value">${account.engagementRate}</div>
           </div>
           <div class="detail-item">
-            <div class="detail-label">Факторы риска</div>
+            <div class="detail-label">Ключевые признаки</div>
             <div class="detail-value">${account.riskFactors.join(", ")}</div>
           </div>
         </div>
-      `).join("")}
+      `,
+        )
+        .join("")}
 
-      <h2>📝 Профиль угрозы</h2>
+      <h2>Профиль угрозы</h2>
       <div class="section">
-        ${report.profileDetails.map(detail => `
+        ${report.profileDetails
+          .map(
+            (detail) => `
           <div class="detail-item">
             <div class="detail-label">${detail.label}</div>
             <div class="detail-value">${detail.value}</div>
           </div>
-        `).join("")}
+        `,
+          )
+          .join("")}
       </div>
 
-      <h2>📌 Последние посты</h2>
-      ${report.recentPosts.map((post, idx) => `
+      <h2>Последние посты</h2>
+      ${report.recentPosts
+        .map(
+          (post, idx) => `
         <div class="section">
           <h3>${idx + 1}. ${post.account}</h3>
           <p><strong>Дата:</strong> ${post.date}</p>
@@ -321,7 +306,9 @@ function generateReportHTML(report: ThreatReport): string {
           <p><strong>Содержание:</strong> ${post.excerpt}</p>
           <p><strong>Вовлечение:</strong> ${post.engagement}</p>
         </div>
-      `).join("")}
+      `,
+        )
+        .join("")}
 
       <div class="footer">
         <p>Отчет сгенерирован системой AI Media Watch • ${date}</p>

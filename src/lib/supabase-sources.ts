@@ -103,29 +103,9 @@ export async function fetchSourcesLiveData(): Promise<SourcesLiveData> {
       .map((analysis) => [analysis.url_hash as string, analysis]),
   );
 
-  const posts = mediaItems.map((item, index) => {
-    const analysis = item.url_hash ? analysisByHash.get(item.url_hash) : undefined;
-    const platform = platformFromValue(item.platform ?? item.source_type);
-    const riskScore = clampScore(analysis?.risk_score ?? item.risk_score ?? 0);
-    const evidence = evidenceFromItem(item, analysis);
-
-    return {
-      id: item.url_hash ?? `source-${index}`,
-      platform,
-      icon: iconForPlatform(platform),
-      account: cleanLabel(
-        item.channel_name ?? hostFromUrl(item.channel_url) ?? hostFromUrl(item.url) ?? "Источник",
-      ),
-      sourceHref: normalizeUrl(item.url ?? item.channel_url),
-      sourceUrl: cleanLabel(item.url ?? item.channel_url ?? "-"),
-      city: "Казахстан",
-      foundAt: formatFoundAt(item.published_at ?? item.updated_at ?? item.created_at),
-      threat: cleanLabel(analysis?.threat_type ?? item.threat_type ?? "Без классификации"),
-      risk: riskLevelFromScore(riskScore),
-      excerpt: cleanLabel(item.snippet ?? item.title ?? "Текст публикации не указан."),
-      evidence,
-    } satisfies FoundSourcePost;
-  });
+  const posts = mediaItems.map((item, index) =>
+    buildFoundSourcePost(item, analysisByHash.get(item.url_hash ?? ""), index),
+  );
 
   return {
     posts,
@@ -133,6 +113,79 @@ export async function fetchSourcesLiveData(): Promise<SourcesLiveData> {
     criticalPosts: posts.filter((post) => post.risk === "Critical").length,
     errorMessage: analysisResult.error?.message ?? null,
   };
+}
+
+export async function fetchSourcePostById(
+  sourceId: string,
+): Promise<FoundSourcePost | null> {
+  const supabase = getSupabaseClient();
+
+  if (!supabase || !sourceId) {
+    return null;
+  }
+
+  const [mediaResult, analysisResult] = await Promise.all([
+    supabase
+      .from("media_items")
+      .select(
+        "url_hash, url, platform, source_type, title, snippet, published_at, channel_name, channel_url, risk_score, risk_signals, kz_signals, bookmaker_brands, threat_type, status, updated_at, created_at",
+      )
+      .eq("url_hash", sourceId)
+      .maybeSingle(),
+    supabase
+      .from("ai_analyses")
+      .select("url_hash, risk_score, threat_type, key_signals")
+      .eq("url_hash", sourceId)
+      .order("analyzed_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (mediaResult.error || !mediaResult.data) {
+    return null;
+  }
+
+  return buildFoundSourcePost(
+    mediaResult.data as MediaItemRow,
+    analysisResult.error ? undefined : ((analysisResult.data ?? undefined) as AiAnalysisRow | undefined),
+    0,
+  );
+}
+
+function buildFoundSourcePost(
+  item: MediaItemRow,
+  analysis: AiAnalysisRow | undefined,
+  index: number,
+) {
+  const platform = platformFromValue(item.platform ?? item.source_type);
+  const riskScore = clampScore(analysis?.risk_score ?? item.risk_score ?? 0);
+  const evidence = evidenceFromItem(item, analysis);
+
+  return {
+    id: item.url_hash ?? `source-${index}`,
+    platform,
+    icon: iconForPlatform(platform),
+    account: cleanLabel(
+      item.channel_name ??
+        hostFromUrl(item.channel_url) ??
+        hostFromUrl(item.url) ??
+        "Источник",
+    ),
+    sourceHref: normalizeUrl(item.url ?? item.channel_url),
+    sourceUrl: cleanLabel(item.url ?? item.channel_url ?? "-"),
+    city: "Казахстан",
+    foundAt: formatFoundAt(
+      item.published_at ?? item.updated_at ?? item.created_at,
+    ),
+    threat: cleanLabel(
+      analysis?.threat_type ?? item.threat_type ?? "Без классификации",
+    ),
+    risk: riskLevelFromScore(riskScore),
+    excerpt: cleanLabel(
+      item.snippet ?? item.title ?? "Текст публикации не указан.",
+    ),
+    evidence,
+  } satisfies FoundSourcePost;
 }
 
 function evidenceFromItem(item: MediaItemRow, analysis?: AiAnalysisRow) {

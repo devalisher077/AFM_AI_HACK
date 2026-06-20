@@ -1,6 +1,4 @@
-import { ThreatReport, riskLabels } from "@/lib/dashboard-data";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { ThreatReport } from "@/lib/dashboard-data";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -12,25 +10,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  BarChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
 } from "recharts";
-import {
-  Brain,
-  CheckCircle2,
-  Download,
-  FileText,
-  Gauge,
-  ShieldAlert,
-  Workflow,
-} from "lucide-react";
 import { downloadReportPDF, downloadReportWord } from "./exportUtils";
 
 interface ReportDetailProps {
@@ -38,499 +27,449 @@ interface ReportDetailProps {
 }
 
 export function ReportDetail({ report }: ReportDetailProps) {
-  const riskColors = {
-    Critical: "bg-red/20 text-red border-red/40",
-    High: "bg-orange/20 text-orange border-orange/40",
-    Medium: "bg-yellow/20 text-yellow border-yellow/40",
-  };
-
-  const accentColorMap = {
-    cyan: "text-cyan",
-    green: "text-green",
-    orange: "text-orange",
-    pink: "text-pink",
-  };
-
   const totalSignals = report.sourceBreakdown.reduce(
     (sum, source) => sum + source.signals,
     0,
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Header with title and export buttons */}
-      <div className="glass relative overflow-hidden rounded-2xl p-4">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-cyan/60 via-glow-green/35 to-transparent" />
+    <article className="glass overflow-hidden border border-border/60 bg-card/35">
+      <header className="border-b border-border/50 px-6 py-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-          <div className="flex min-w-0 items-start gap-3">
-            <div
-              className={`rounded-lg bg-muted/20 p-2 ${accentColorMap[report.accent]}`}
-            >
-              <report.icon className="h-6 w-6" strokeWidth={1.75} />
+          <div className="min-w-0">
+            <div className="mb-2 flex flex-wrap items-center gap-3 text-[12px] uppercase tracking-[0.16em] text-muted-foreground">
+              <span>Аналитический отчет</span>
+              <span className="h-px w-4 bg-muted-foreground/50" />
+              <span>{report.statistics.totalPosts} просканировано</span>
+              <span className="h-px w-4 bg-muted-foreground/50" />
+              <span>Обновлено сегодня</span>
             </div>
-            <div className="min-w-0">
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className={`border ${riskColors[report.riskLevel]}`}
-                >
-                  {riskLabels[report.riskLevel]}
-                </Badge>
-                <span className="text-[12px] text-muted-foreground">
-                  Обновлено сегодня
-                </span>
-              </div>
-              <h2 className="text-xl font-bold text-foreground">
-                {report.threat}
-              </h2>
-              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-                {report.description}
-              </p>
-            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              {report.threat}
+            </h2>
+            <p className="mt-2 max-w-4xl text-sm leading-relaxed text-muted-foreground">
+              {report.description}
+            </p>
           </div>
           <div className="flex shrink-0 gap-2">
             <Button
               onClick={() => downloadReportPDF(report)}
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-2 rounded-none"
             >
-              <Download className="h-4 w-4" />
               PDF
             </Button>
             <Button
               onClick={() => downloadReportWord(report)}
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-2 rounded-none"
             >
-              <FileText className="h-4 w-4" />
               Word
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Statistics cards */}
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Card className="glass border-border/60 p-3">
-          <span className="block text-[11px] text-muted-foreground">
-            Всего постов
-          </span>
-          <span className="block text-lg font-bold text-foreground">
-            {report.statistics.totalPosts}
-          </span>
-        </Card>
-        <Card className="glass border-border/60 p-3">
-          <span className="block text-[11px] text-muted-foreground">
-            Активных аккаунтов
-          </span>
-          <span className="block text-lg font-bold text-foreground">
-            {report.statistics.activeAccounts}
-          </span>
-        </Card>
-        <Card className="glass border-border/60 p-3">
-          <span className="block text-[11px] text-muted-foreground">
-            Города
-          </span>
-          <span className="block text-lg font-bold text-foreground">
-            {report.statistics.citiesAffected}
-          </span>
-        </Card>
-        <Card className="glass border-border/60 p-3">
-          <span className="block text-[11px] text-muted-foreground">Рост</span>
-          <span className="block text-lg font-bold text-green">
-            {report.statistics.growthRate}
-          </span>
-        </Card>
-      </div>
+      <section className="grid gap-px border-b border-border/50 bg-border/40 md:grid-cols-4">
+        <ReportMetric
+          label="Просканировано"
+          value={report.statistics.totalPosts}
+        />
+        <ReportMetric
+          label="Активных источников"
+          value={report.statistics.activeAccounts}
+        />
+        <ReportMetric
+          label="География"
+          value={report.statistics.citiesAffected}
+        />
+        <ReportMetric label="Динамика" value={report.statistics.growthRate} />
+      </section>
 
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="glass border-border/60 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-orange" strokeWidth={1.8} />
-            <h3 className="text-sm font-semibold text-foreground">
-              Детальное описание угрозы
-            </h3>
+      <div className="px-6 py-5">
+        <section className="grid gap-8 xl:grid-cols-[1.2fr_0.8fr]">
+          <div>
+            <SectionHeading title="Описание ситуации" />
+            <p className="mt-3 text-[13px] leading-relaxed text-muted-foreground">
+              {report.detailedDescription}
+            </p>
           </div>
-          <p className="text-[13px] leading-relaxed text-muted-foreground">
-            {report.detailedDescription}
-          </p>
-        </Card>
 
-        <Card className="glass border-border/60 p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-cyan" strokeWidth={1.8} />
-              <h3 className="text-sm font-semibold text-foreground">
-                AI-анализ
-              </h3>
-            </div>
-            <span className="rounded-md bg-cyan/10 px-2 py-1 text-[11px] font-semibold text-cyan ring-1 ring-cyan/30">
-              {report.aiSummary.confidence}
-            </span>
-          </div>
-          <p className="text-[13px] leading-relaxed text-foreground/85">
-            {report.aiSummary.modelVerdict}
-          </p>
-          <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
-            {report.aiSummary.nextAction}
-          </p>
-        </Card>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        {report.statisticHighlights.map((item) => (
-          <Card key={item.label} className="glass border-border/60 p-3">
-            <span className="block text-[11px] text-muted-foreground">
-              {item.label}
-            </span>
-            <div className="mt-1 flex items-end justify-between gap-3">
-              <span className="text-xl font-bold text-foreground">
-                {item.value}
-              </span>
-              <span className="text-[11px] font-medium text-glow-green">
-                {item.delta}
+          <div>
+            <div className="flex items-center justify-between gap-3">
+              <SectionHeading title="AI-вывод" />
+              <span className="text-[12px] font-semibold text-foreground">
+                {report.aiSummary.confidence}
               </span>
             </div>
-          </Card>
-        ))}
-      </div>
+            <p className="mt-3 text-[13px] leading-relaxed text-foreground/85">
+              {report.aiSummary.modelVerdict}
+            </p>
+            <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground">
+              {report.aiSummary.nextAction}
+            </p>
+          </div>
+        </section>
 
-      {/* Tabs with detailed info */}
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid h-auto w-full grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-          <TabsTrigger value="overview">Обзор</TabsTrigger>
-          <TabsTrigger value="analysis">AI-вывод</TabsTrigger>
-          <TabsTrigger value="sources">Источники</TabsTrigger>
-          <TabsTrigger value="cities">Города</TabsTrigger>
-          <TabsTrigger value="accounts">Аккаунты</TabsTrigger>
-          <TabsTrigger value="posts">Доказательства</TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-2">
-            {/* Profile Details */}
-            <Card className="glass border-border/60 p-4">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">
-                Характеристики
-              </h3>
-              <div className="space-y-2">
-                {report.profileDetails.map((detail, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <detail.icon
-                      className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5"
-                      strokeWidth={1.75}
-                    />
-                    <div className="flex-1">
-                      <span className="text-[12px] text-muted-foreground">
-                        {detail.label}
-                      </span>
-                      <p className="text-sm font-medium text-foreground">
-                        {detail.value}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+        <section className="mt-6 grid gap-px overflow-hidden bg-border/40 md:grid-cols-3">
+          {report.statisticHighlights.map((item) => (
+            <div key={item.label} className="bg-background/35 px-4 py-3">
+              <span className="block text-[11px] text-muted-foreground">
+                {item.label}
+              </span>
+              <div className="mt-1 flex items-end justify-between gap-3">
+                <span className="text-xl font-bold text-foreground">
+                  {item.value}
+                </span>
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {item.delta}
+                </span>
               </div>
-            </Card>
-
-            {/* Activity Chart */}
-            <Card className="glass border-border/60 p-4">
-              <h3 className="mb-3 text-sm font-semibold text-foreground">
-                Активность по дням
-              </h3>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart data={report.postActivity}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 11 }}
-                    stroke="var(--muted-foreground)"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11 }}
-                    stroke="var(--muted-foreground)"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "var(--background)",
-                      border: "1px solid var(--border)",
-                      borderRadius: "8px",
-                    }}
-                    labelStyle={{ color: "var(--foreground)" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="postsCount"
-                    stroke="var(--cyan)"
-                    dot={false}
-                    strokeWidth={2}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </Card>
-          </div>
-
-          {/* Top Accounts */}
-          <Card className="glass border-border/60 p-4">
-            <h3 className="mb-3 text-sm font-semibold text-foreground">
-              Топ аккаунтов
-            </h3>
-            <div className="space-y-2">
-              {report.topAccounts.map((account, idx) => (
-                <div
-                  key={idx}
-                  className="glass flex items-center justify-between rounded-lg border border-border/60 p-2"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {account.name}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {account.subscribers} подписчиков • {account.posts} постов
-                    </p>
-                  </div>
-                  <Badge className="ml-2 bg-red/20 text-red border-0">
-                    {account.riskScore}
-                  </Badge>
-                </div>
-              ))}
             </div>
-          </Card>
-        </TabsContent>
+          ))}
+        </section>
 
-        <TabsContent value="analysis" className="space-y-4">
-          <div className="grid gap-4 xl:grid-cols-[1fr_360px]">
-            <Card className="glass border-border/60 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Gauge className="h-4 w-4 text-cyan" strokeWidth={1.8} />
-                Обнаруженные AI-паттерны
-              </h3>
-              <div className="space-y-3">
-                {report.aiFindings.map((finding) => (
-                  <div
-                    key={finding}
-                    className="flex gap-2 rounded-lg border border-border/50 bg-muted/10 p-3"
-                  >
-                    <CheckCircle2
-                      className="mt-0.5 h-4 w-4 shrink-0 text-glow-green"
-                      strokeWidth={1.8}
-                    />
-                    <p className="text-[13px] leading-relaxed text-muted-foreground">
+        <Tabs defaultValue="overview" className="mt-6 w-full">
+          <TabsList className="grid h-auto w-full grid-cols-2 rounded-none bg-muted/20 md:grid-cols-3 xl:grid-cols-6">
+            <TabsTrigger className="rounded-none" value="overview">
+              Обзор
+            </TabsTrigger>
+            <TabsTrigger className="rounded-none" value="analysis">
+              AI-вывод
+            </TabsTrigger>
+            <TabsTrigger className="rounded-none" value="sources">
+              Источники
+            </TabsTrigger>
+            <TabsTrigger className="rounded-none" value="cities">
+              География
+            </TabsTrigger>
+            <TabsTrigger className="rounded-none" value="accounts">
+              Аккаунты
+            </TabsTrigger>
+            <TabsTrigger className="rounded-none" value="posts">
+              Доказательства
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-5 space-y-8">
+            <section className="grid gap-8 xl:grid-cols-2">
+              <div>
+                <SectionHeading title="Характеристики" />
+                <dl className="mt-3 divide-y divide-border/45">
+                  {report.profileDetails.map((detail) => (
+                    <div
+                      key={detail.label}
+                      className="grid gap-1 py-3 sm:grid-cols-[180px_1fr]"
+                    >
+                      <dt className="text-[12px] text-muted-foreground">
+                        {detail.label}
+                      </dt>
+                      <dd className="text-sm font-medium text-foreground">
+                        {detail.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              <div>
+                <SectionHeading title="Активность по дням" />
+                <div className="mt-3 h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={report.postActivity}>
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="var(--border)"
+                      />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 11 }}
+                        stroke="var(--muted-foreground)"
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11 }}
+                        stroke="var(--muted-foreground)"
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: "var(--background)",
+                          border: "1px solid var(--border)",
+                        }}
+                        labelStyle={{ color: "var(--foreground)" }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="postsCount"
+                        stroke="var(--foreground)"
+                        dot={false}
+                        strokeWidth={2}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <SectionHeading title="Основные аккаунты" />
+              <div className="mt-3 overflow-hidden border border-border/45">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Аккаунт</TableHead>
+                      <TableHead>Платформа</TableHead>
+                      <TableHead>Подписчики</TableHead>
+                      <TableHead>Публикации</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.topAccounts.map((account) => (
+                      <TableRow key={`${account.platform}-${account.name}`}>
+                        <TableCell className="font-medium text-foreground">
+                          {account.name}
+                        </TableCell>
+                        <TableCell>{account.platform}</TableCell>
+                        <TableCell>{account.subscribers}</TableCell>
+                        <TableCell>{account.posts}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="analysis" className="mt-5 space-y-8">
+            <section className="grid gap-8 xl:grid-cols-[1fr_360px]">
+              <div>
+                <SectionHeading title="Обнаруженные AI-паттерны" />
+                <div className="mt-3 divide-y divide-border/45">
+                  {report.aiFindings.map((finding) => (
+                    <p
+                      key={finding}
+                      className="py-3 text-[13px] leading-relaxed text-muted-foreground"
+                    >
                       {finding}
                     </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            <Card className="glass border-border/60 p-4">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <Workflow className="h-4 w-4 text-orange" strokeWidth={1.8} />
-                План реакции
-              </h3>
-              <div className="space-y-3">
-                {report.responsePlan.map((step, index) => (
-                  <div key={step} className="flex gap-3">
-                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-orange/15 text-[11px] font-bold text-orange ring-1 ring-orange/35">
-                      {index + 1}
-                    </span>
-                    <p className="text-[13px] leading-relaxed text-muted-foreground">
-                      {step}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="sources" className="space-y-4">
-          <Card className="glass border-border/60 p-4">
-            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">
-                  Источники и вклад в риск
-                </h3>
-                <p className="text-[12px] text-muted-foreground">
-                  Всего сигналов по кластеру: {totalSignals}
-                </p>
-              </div>
-              <Badge variant="secondary" className="w-fit bg-cyan/15 text-cyan">
-                cross-source matching
-              </Badge>
-            </div>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Источник</TableHead>
-                  <TableHead>Платформа</TableHead>
-                  <TableHead>Доля</TableHead>
-                  <TableHead>Сигналы</TableHead>
-                  <TableHead>Надежность</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {report.sourceBreakdown.map((source) => (
-                  <TableRow key={source.source}>
-                    <TableCell className="font-medium text-foreground">
-                      {source.source}
-                    </TableCell>
-                    <TableCell>{source.platform}</TableCell>
-                    <TableCell>{source.share}</TableCell>
-                    <TableCell>{source.signals}</TableCell>
-                    <TableCell>{source.reliability}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        {/* Cities Tab */}
-        <TabsContent value="cities" className="space-y-4">
-          <Card className="glass border-border/60 p-4">
-            <h3 className="mb-4 text-sm font-semibold text-foreground">
-              Посты по городам
-            </h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={report.topCities}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis
-                  dataKey="city"
-                  tick={{ fontSize: 11 }}
-                  stroke="var(--muted-foreground)"
-                />
-                <YAxis
-                  tick={{ fontSize: 11 }}
-                  stroke="var(--muted-foreground)"
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "var(--background)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "8px",
-                  }}
-                  labelStyle={{ color: "var(--foreground)" }}
-                />
-                <Bar dataKey="posts" fill="var(--cyan)" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </Card>
-
-          <div className="space-y-2">
-            {report.topCities.map((city, idx) => (
-              <Card key={idx} className="glass border-border/60 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {city.city}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Впервые обнаружено: {city.firstDetected}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-cyan">
-                      {city.posts} постов
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      {city.accounts} аккаунтов
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Accounts Tab */}
-        <TabsContent value="accounts" className="space-y-4">
-          {report.accountAnalysis.map((account, idx) => (
-            <Card key={idx} className="glass border-border/60 p-4">
-              <div className="mb-3">
-                <h3 className="text-sm font-semibold text-foreground">
-                  {account.account}
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  {account.platform} • Создан {account.createdDate}
-                </p>
-              </div>
-
-              <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-[10px] text-muted-foreground">
-                    Подписчиков
-                  </p>
-                  <p className="text-sm font-bold text-foreground">
-                    {account.subscribers.toLocaleString()}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-[10px] text-muted-foreground">Постов</p>
-                  <p className="text-sm font-bold text-foreground">
-                    {account.postsCount}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-muted/40 p-2">
-                  <p className="text-[10px] text-muted-foreground">
-                    Вовлечение
-                  </p>
-                  <p className="text-sm font-bold text-foreground">
-                    {account.engagementRate}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-red/20 p-2">
-                  <p className="text-[10px] text-red">Риск</p>
-                  <p className="text-sm font-bold text-red">Высокий</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-2 text-[11px] font-medium text-foreground">
-                  Факторы риска:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {account.riskFactors.map((factor, i) => (
-                    <Badge
-                      key={i}
-                      variant="secondary"
-                      className="text-[10px] bg-orange/20 text-orange border-0"
-                    >
-                      {factor}
-                    </Badge>
                   ))}
                 </div>
               </div>
-            </Card>
-          ))}
-        </TabsContent>
 
-        {/* Posts Tab */}
-        <TabsContent value="posts" className="space-y-3">
-          {report.recentPosts.map((post) => (
-            <Card key={post.id} className="glass border-border/60 p-4">
-              <div className="mb-2 flex items-start justify-between">
+              <div>
+                <SectionHeading title="План реакции" />
+                <ol className="mt-3 space-y-3">
+                  {report.responsePlan.map((step, index) => (
+                    <li key={step} className="flex gap-3">
+                      <span className="mt-0.5 text-[12px] font-bold text-foreground">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <p className="text-[13px] leading-relaxed text-muted-foreground">
+                        {step}
+                      </p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="sources" className="mt-5">
+            <section>
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                 <div>
-                  <p className="font-semibold text-foreground">
-                    {post.account}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {post.date} • {post.platform}
+                  <SectionHeading title="Источники и сигналы" />
+                  <p className="mt-1 text-[12px] text-muted-foreground">
+                    Всего сигналов по кластеру: {totalSignals}
                   </p>
                 </div>
+                <span className="text-[12px] font-medium text-muted-foreground">
+                  cross-source matching
+                </span>
               </div>
-              <p className="mb-3 text-sm text-foreground/80">{post.excerpt}</p>
-              <div className="text-[11px] text-muted-foreground">
-                <span>📊 {post.engagement}</span>
+
+              <div className="mt-4 overflow-hidden border border-border/45">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Источник</TableHead>
+                      <TableHead>Платформа</TableHead>
+                      <TableHead>Доля</TableHead>
+                      <TableHead>Сигналы</TableHead>
+                      <TableHead>Надежность</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.sourceBreakdown.map((source) => (
+                      <TableRow key={source.source}>
+                        <TableCell className="font-medium text-foreground">
+                          {source.source}
+                        </TableCell>
+                        <TableCell>{source.platform}</TableCell>
+                        <TableCell>{source.share}</TableCell>
+                        <TableCell>{source.signals}</TableCell>
+                        <TableCell>{source.reliability}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            </Card>
-          ))}
-        </TabsContent>
-      </Tabs>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="cities" className="mt-5 space-y-6">
+            <section>
+              <SectionHeading title="Публикации по географии" />
+              <div className="mt-3 h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={report.topCities}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="var(--border)"
+                    />
+                    <XAxis
+                      dataKey="city"
+                      tick={{ fontSize: 11 }}
+                      stroke="var(--muted-foreground)"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      stroke="var(--muted-foreground)"
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: "var(--background)",
+                        border: "1px solid var(--border)",
+                      }}
+                      labelStyle={{ color: "var(--foreground)" }}
+                    />
+                    <Bar dataKey="posts" fill="var(--foreground)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+
+            <div className="overflow-hidden border border-border/45">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>География</TableHead>
+                    <TableHead>Первое обнаружение</TableHead>
+                    <TableHead>Публикации</TableHead>
+                    <TableHead>Аккаунты</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {report.topCities.map((city) => (
+                    <TableRow key={city.city}>
+                      <TableCell className="font-medium text-foreground">
+                        {city.city}
+                      </TableCell>
+                      <TableCell>{city.firstDetected}</TableCell>
+                      <TableCell>{city.posts}</TableCell>
+                      <TableCell>{city.accounts}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-5">
+            <section>
+              <SectionHeading title="Анализ аккаунтов" />
+              <div className="mt-3 overflow-hidden border border-border/45">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Аккаунт</TableHead>
+                      <TableHead>Платформа</TableHead>
+                      <TableHead>Создан</TableHead>
+                      <TableHead>Подписчики</TableHead>
+                      <TableHead>Публикации</TableHead>
+                      <TableHead>Вовлечение</TableHead>
+                      <TableHead>Ключевые признаки</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {report.accountAnalysis.map((account) => (
+                      <TableRow key={`${account.platform}-${account.account}`}>
+                        <TableCell className="font-medium text-foreground">
+                          {account.account}
+                        </TableCell>
+                        <TableCell>{account.platform}</TableCell>
+                        <TableCell>{account.createdDate}</TableCell>
+                        <TableCell>
+                          {account.subscribers.toLocaleString()}
+                        </TableCell>
+                        <TableCell>{account.postsCount}</TableCell>
+                        <TableCell>{account.engagementRate}</TableCell>
+                        <TableCell className="max-w-[280px]">
+                          {account.riskFactors.length > 0
+                            ? account.riskFactors.join(", ")
+                            : "-"}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="posts" className="mt-5">
+            <section>
+              <SectionHeading title="Доказательная база" />
+              <div className="mt-3 divide-y divide-border/45">
+                {report.recentPosts.map((post) => (
+                  <article key={post.id} className="py-4">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="font-semibold text-foreground">
+                        {post.account}
+                      </h3>
+                      <p className="text-[11px] text-muted-foreground">
+                        {post.date} · {post.platform}
+                      </p>
+                    </div>
+                    <p className="mt-2 text-sm leading-relaxed text-foreground/80">
+                      {post.excerpt}
+                    </p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      {post.engagement}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </article>
+  );
+}
+
+function ReportMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | number;
+}) {
+  return (
+    <div className="bg-background/35 px-4 py-3">
+      <span className="block text-[11px] text-muted-foreground">{label}</span>
+      <span className="mt-1 block text-lg font-bold text-foreground">
+        {value}
+      </span>
     </div>
+  );
+}
+
+function SectionHeading({ title }: { title: string }) {
+  return (
+    <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+      {title}
+    </h3>
   );
 }

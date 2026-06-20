@@ -106,7 +106,9 @@ export async function fetchAiAnalysisLiveData(): Promise<AiAnalysisLiveData> {
       .limit(120),
     supabase
       .from("ai_analyses")
-      .select("url_hash, confidence, risk_score, key_signals, recommended_action")
+      .select(
+        "url_hash, confidence, risk_score, key_signals, recommended_action",
+      )
       .order("analyzed_at", { ascending: false, nullsFirst: false })
       .limit(160),
   ]);
@@ -192,7 +194,11 @@ export async function fetchAiAnalysisPage(
 
   return {
     items: analyses.map((analysis, index) =>
-      analysisItemFromRow(analysis, mediaByHash.get(analysis.url_hash ?? ""), from + index),
+      analysisItemFromRow(
+        analysis,
+        mediaByHash.get(analysis.url_hash ?? ""),
+        from + index,
+      ),
     ),
     total,
     page,
@@ -304,7 +310,7 @@ function analysisItemFromRow(
     model: cleanText(analysis.model),
     riskScore: formatScore(analysis.risk_score),
     kzRelevanceScore: formatScore(analysis.kz_relevance_score),
-    threatType: cleanText(analysis.threat_type),
+    threatType: localizeThreatLabel(analysis.threat_type),
     isFalsePositive:
       typeof analysis.is_false_positive === "boolean"
         ? analysis.is_false_positive
@@ -342,7 +348,9 @@ function buildAnalysisSources(
   >();
 
   for (const item of mediaItems) {
-    const analysis = item.url_hash ? analysisByHash.get(item.url_hash) : undefined;
+    const analysis = item.url_hash
+      ? analysisByHash.get(item.url_hash)
+      : undefined;
     const platform = platformLabel(item.platform ?? item.source_type ?? "Web");
     const group = groups.get(platform) ?? {
       count: 0,
@@ -429,7 +437,12 @@ function riskLabel(score: number) {
 }
 
 function accentForIndex(index: number): AnalysisSource["accent"] {
-  const accents: AnalysisSource["accent"][] = ["cyan", "green", "orange", "pink"];
+  const accents: AnalysisSource["accent"][] = [
+    "cyan",
+    "green",
+    "orange",
+    "pink",
+  ];
   return accents[index % accents.length];
 }
 
@@ -452,7 +465,9 @@ function stringArray(value: unknown): string[] {
 }
 
 function unique(values: string[]) {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  );
 }
 
 function clampScore(value: number) {
@@ -467,11 +482,57 @@ function formatScore(value: number | null) {
 }
 
 function formatNullableNumber(value: number | null) {
-  return typeof value === "number" && Number.isFinite(value) ? String(value) : "-";
+  return typeof value === "number" && Number.isFinite(value)
+    ? String(value)
+    : "-";
 }
 
 function cleanText(value: string | null | undefined) {
   return value?.trim() || "-";
+}
+
+function localizeThreatLabel(value: string | null | undefined) {
+  const label = cleanText(value);
+  const normalized = label
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const exactTranslations: Record<string, string> = {
+    "possible illegal casino": "Возможное нелегальное казино",
+    "illegal casino": "Нелегальное казино",
+    "online casino": "Онлайн-казино",
+    "possible scam": "Возможное мошенничество",
+    scam: "Мошенничество",
+    phishing: "Фишинг",
+    "crypto scam": "Криптомошенничество",
+    "betting scam": "Мошеннические ставки",
+    "financial scam": "Финансовое мошенничество",
+    "investment scam": "Инвестиционное мошенничество",
+    gambling: "Азартные игры",
+    betting: "Ставки",
+  };
+
+  if (exactTranslations[normalized]) {
+    return exactTranslations[normalized];
+  }
+
+  if (normalized.includes("illegal") && normalized.includes("casino")) {
+    return "Возможное нелегальное казино";
+  }
+  if (normalized.includes("casino")) return "Онлайн-казино";
+  if (normalized.includes("betting") || normalized.includes("bookmaker")) {
+    return "Ставки и букмекерские схемы";
+  }
+  if (normalized.includes("crypto")) return "Криптовалютная схема";
+  if (normalized.includes("phishing")) return "Фишинг";
+  if (normalized.includes("investment")) return "Инвестиционная схема";
+  if (normalized.includes("scam") || normalized.includes("fraud")) {
+    return "Мошенническая схема";
+  }
+
+  return label;
 }
 
 function formatJson(value: unknown) {
