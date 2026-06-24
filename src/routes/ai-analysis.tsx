@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   AlertTriangle,
+  BrainCircuit,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   ExternalLink,
   MapPin,
   ShieldAlert,
@@ -378,6 +380,24 @@ function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
           <p className="mt-1 text-[15px] leading-relaxed text-muted-foreground">
             {item.reasoningShort}
           </p>
+          {item.keySignals.length > 0 ? (
+            <div className="mt-3 border border-border/40 bg-card/25 p-3">
+              <div className="mb-2 flex items-center gap-2 text-[12px] font-semibold text-foreground">
+                <BrainCircuit className="h-4 w-4 text-cyan" strokeWidth={2} />
+                Сигналы AI
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {item.keySignals.slice(0, 8).map((signal, index) => (
+                  <span
+                    key={`${item.id}-signal-${index}`}
+                    className="max-w-full break-words border border-border/50 bg-muted/10 px-2 py-1 text-[11px] leading-relaxed text-muted-foreground"
+                  >
+                    {signal}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {item.error !== "-" ? (
             <p className="mt-2 break-words border border-border/50 bg-muted/10 p-2 text-[11px] text-foreground">
               {item.error}
@@ -413,10 +433,71 @@ function AiAnalysisCard({ item }: { item: AiAnalysisItem }) {
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Tag>{item.postPlatform}</Tag>
             <Tag>{item.postSource}</Tag>
+            {item.videoDuration !== "-" ? (
+              <Tag>длительность {item.videoDuration}</Tag>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {item.videoFrames.length > 0 ? (
+        <VideoFramesPanel item={item} />
+      ) : null}
     </article>
+  );
+}
+
+function VideoFramesPanel({ item }: { item: AiAnalysisItem }) {
+  return (
+    <div className="mt-3 min-w-0 overflow-hidden border border-border/40 bg-card/30 p-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Clock3 className="h-4 w-4 text-blue-400" strokeWidth={2} />
+          <h4 className="text-[12px] font-semibold text-foreground">
+            Видео по таймкодам
+          </h4>
+        </div>
+        {item.videoDuration !== "-" ? (
+          <span className="text-[11px] text-muted-foreground">
+            всего {item.videoDuration}
+          </span>
+        ) : null}
+      </div>
+      <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {item.videoFrames.map((frame, index) => (
+          <div
+            key={`${item.id}-frame-${index}`}
+            className="min-w-0 border border-border/45 bg-muted/10 p-2"
+          >
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className="font-mono text-[12px] font-bold text-cyan">
+                {frame.timeRange}
+              </span>
+              {frame.durationSeconds !== null ? (
+                <span className="text-[10px] text-muted-foreground">
+                  {Math.round(frame.durationSeconds)} сек
+                </span>
+              ) : null}
+            </div>
+            <p className="break-words text-[12px] leading-relaxed text-foreground/85">
+              {frame.summary}
+            </p>
+            {frame.riskSignals.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {frame.riskSignals.slice(0, 4).map((signal, signalIndex) => (
+                  <span
+                    key={`${item.id}-frame-${index}-risk-${signalIndex}`}
+                    className="max-w-full break-words border border-red-500/25 bg-red-500/10 px-1.5 py-0.5 text-[10px] leading-relaxed text-red-200"
+                  >
+                    {signal}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
