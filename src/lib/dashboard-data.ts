@@ -48,7 +48,7 @@ export const threatCards: ThreatCardData[] = [
   {
     label: "Источник",
     title: "crypto-bonus.kz",
-    metricLabel: "Уровень риска7",
+    metricLabel: "Уровень риска",
     value: "81/100",
     accent: "green",
   },
